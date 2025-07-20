@@ -1,0 +1,10 @@
+name: default
+channels:
+  - defaults
+dependencies: []
+variables:
+prefix:
+platforms:
+  - osx-64
+  - linux-64
+  - win-64
