@@ -2,14 +2,24 @@ project:
   type: book
 
 book:
-  title: "cyber-security"
-  author: "Norah Jones"
-  date: "7/20/2025"
+  title: "Bayesian Neural Networks"
+  author: 
+    - name: "Diego Cesar Villa Almeyda"
+      affiliations:
+        - name: "The University of Edinburgh"
+          department: "School of Mathematics"
+  date: "15 August 2025"
+  date-format: "MMMM, YYYY"
   chapters:
     - index.qmd
-    - intro.qmd
     - summary.qmd
+    - intro.qmd
+    - methods.qmd
+    - results.qmd
+    - conclusions.qmd
     - references.qmd
+    - appendix.qmd
+  
 
 bibliography: references.bib
 
@@ -20,6 +30,34 @@ format:
       - brand
   pdf:
     documentclass: scrreprt
+    keep-tex: true
+    include-in-header:
+      text: |
+       \usepackage[font=small, labelfont={bf,small}, format=plain]{caption}
+       \usepackage{caption}
+       \captionsetup[longtable]{position=bottom}
+    template-partials:
+      - before-body.tex
+    papersize: a4
+    geometry: top=2.5cm, bottom=2.5cm, left=3cm, right=3cm
+    
+number-sections: true
 
+csl: vancouver.csl
+
+crossref:
+  custom:
+    - kind: float
+      key: suppfig
+      latex-env: suppfig
+      reference-prefix: "Figure S"
+      space-before-numbering: false
+      latex-list-of-description: "Supplementary Figures"
+    - kind: float
+      key: supptbl
+      latex-env: supptbl
+      reference-prefix: "Table S"
+      space-before-numbering: false
+      latex-list-of-description: "Supplementary Tables"
 
 

@@ -1,0 +1,21 @@
+# Appendix {.unnumbered}
+
+## Supplementary Tables
+
+
+```{python}
+#| echo: false
+#| label: supptbl-dict
+import pandas as pd
+from IPython.display import Markdown
+from tabulate import tabulate
+
+df = pd.read_csv("data/dictionary.csv", encoding="windows-1252")
+
+md_table = tabulate(df, headers='keys', tablefmt='github', showindex=False)
+
+# Display as Markdown
+latex_prefix = "\\footnotesize\n\n"  # or use \\footnotesize
+display(Markdown(latex_prefix + md_table))
+```
+

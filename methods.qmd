@@ -1,0 +1,43 @@
+# Methods {sec-methods}
+
+## The UNSW-NB15 Network Dataset
+
+The UNSW-NB15 dataset [@moustafa2015unsw; @moustafa2016evaluation] was created to overcome the limitations of earlier benchmark datasets such as KDD99 and NSL-KDD, which have been criticised for outdated attack types, unrealistic normal traffic, and inconsistent distributions between training and testing sets. In contrast, UNSW-NB15 combines modern real-world network activity with synthetically generated attack behaviours, making it highly suitable for evaluating contemporary Network Intrusion Detection Systems (NIDSs). The dataset contains 49 features encompassing both flow-level host interactions and deep packet inspection metrics, enabling effective discrimination between normal and malicious traffic. It includes nine categories of contemporary cyberattacks alongside updated profiles of normal network behaviour. Statistically, UNSW-NB15 is more complex than its predecessors [@moustafa2016evaluation].
+
+The full dataset comprises 2,540,044 records, of which 2,218,761 (approximately 87%) correspond to normal traffic, resulting in a highly imbalanced class distribution that reflects real-world network conditions [@zoghi2021unsw]. The training and testing subsets were obtained directly from the [UNSW website](https://research.unsw.edu.au/projects/unsw-nb15-dataset) [@unsw2015nb15], consisting of 175,341 and 82,332 records, respectively. Statistical analysis has demonstrated that the training and test sets share similar non-linear and non-normal feature distributions. Furthermore, high statistical correlation between the two sets supports their appropriateness as benchmark data for evaluating statistical and machine learning models tasked with distinguishing complex attack patterns from normal traffic [@moustafa2016evaluation]. Non-informative features were excluded from the distributed datasets, yielding a total of 42 usable predictors and two target variables: `label` (binary attack indicator) and `attack_cat` (attack category), as described in @supptbl-dict.
+
+An initial examination of the training dataset revealed that it contains a disproportionate number of attack records (68.06%) compared to normal traffic (31.93%), which does not reflect realistic conditions. To create a more representative imbalanced subset for our analysis, we retained only the normal traffic and denial-of-service (DoS) attack instances. This resulted in a subset with 82.03% normal and 17.97% DoS traffic, closely aligning with the class distribution in the full dataset.
+
+## Feature Engineering
+
+Exploratory data analysis was conducted to assess the quality and distribution of the features. One of the first issues identified was with the features `is_ftp_login` and `ct_ftp_cmd`, which were found to be identical in the training dataset and contained integer values ranging from 0 to 4. This was unexpected, as `is_ftp_login` is defined as a binary variable in the data dictionary, suggesting possible data corruption. Given that the observed values appeared to align with the definition of `ct_ftp_cmd`, we chose to drop `is_ftp_login` from the training set. Interestingly, this anomaly was not observed in the test set, where the two features differed as expected.
+
+The nominal features `proto`, `service`, and `state` had 133, 13, and 9 unique levels, respectively. However, only a small subset of these levels accounted for the vast majority of records in the training data. To reduce dimensionality and improve model interpretability, we grouped the infrequent levels in each feature into a single "other" category. We applied a Pareto principle approach, retaining the levels that together covered approximately 90% of the records. After grouping, `proto` was reduced to 5 levels, `service` to 4, and `state` to 4, resulting in a more manageable set of categories for downstream modelling.
+
+Most numeric features exhibited strong right-skewness, with a pronounced peak at zero, likely indicating unsuccessful or dropped connections. Further inspection revealed that several variables take values from a limited set of predefined ranges. For example, `sttl` and `dttl`, which represent source and destination time-to-live (TTL) values, frequently appeared near 0, 30, 60, and 250. According to @ttl, typical initial TTL values are 64, 128, and 255, which gradually decrease during transmission—consistent with the observed values, along with the additional cluster near 30. As these values reflect discrete categories rather than continuous magnitudes, we recoded them as ordinal variables with levels "0", "~30", "~64", and "~255". Similarly, the features `swin` and `dwin` predominantly took values of 0 and 255, with other values appearing very infrequently (often only once). This pattern suggested that 0 and 255 may also be predefined values. Accordingly, we discretised these numeric features into the nominal levels "0", "255", and "rare".
+
+Before feature selection and model building, nominal features were one-hot encoded, ordinal features were mapped to integers, and numeric features were log-transformed and scaled using a robust scaler. The robust scaler subtracts the median and divides by the interquartile range (IQR), making it more suitable for highly skewed data than standard scaling, which assumes a roughly symmetric distribution. Because most numeric features were heavily skewed and included zero values, we explored various log-based transformations. For features with zeros, we tested log transformations with two offsets: adding 1, and adding half the smallest non-zero value, as suggested by @hyndman2013transformations. We also tested the Yeo–Johnson transformation. Visual inspection showed that the latter offset approach provided the best normalisation, so we applied it to features containing zeros, while using the standard log transformation for strictly positive features.
+
+## Feature Selection
+
+## Bayesian Neural Networks (BNN)
+
+### Priors
+
+### Inference Methods
+
+#### Markov Chain Monte Carlo (MCMC)
+
+#### Variational Inference (VI)
+
+### Convergence 
+
+## Model Benchmarking 
+
+### Prediction Accuracy
+
+### Calibration
+
+### Running Time
+
+## Interpretability Analysis
