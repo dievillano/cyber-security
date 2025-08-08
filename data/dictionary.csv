@@ -1,46 +1,46 @@
-name,description
-id,
-dur,
-proto,
-service,
-state,
-spkts,
-dpkts,
-sbytes,
-dbytes,
-rate,
-sttl,
-dttl,
-sload,
-dload,
-sloss,
-dloss,
-sinpkt,
-dinpkt,
-sjit,
-djit,
-swin,
-stcpb,
-dtcpb,
-dwin,
-tcprtt,
-synack,
-ackdat,
-smean,
-dmean,
-trans_depth,
-response_body_len,
-ct_srv_src,
-ct_state_ttl,
-ct_dst_ltm,
-ct_src_dport_ltm,
-ct_dst_sport_ltm,
-ct_dst_src_ltm,
-is_ftp_login,
-ct_ftp_cmd,
-ct_flw_http_mthd,
-ct_src_ltm,
-ct_srv_dst,
-is_sm_ips_ports,
-attack_cat,
-label,
+Name,Type ,Description
+id,Integer,Record ID.
+dur,Float,Record total duration.
+proto,Nominal,Transaction protocol.
+service,Nominal,"Such as http, ftp, smtp, ssh, dns and ftp-data."
+state,Nominal,"Indicates to the state and its dependent protocol (such as ACC, CLO and CON)."
+spkts,Integer,Source to destination packet count.
+dpkts,Integer,Destination to source packet count.
+sbytes,Integer,Source to destination transaction bytes.
+dbytes,Integer,Destination to source transaction bytes.
+rate,Float,Ethernet data rates transmitted and received.
+sttl,Integer,Source to destination time to live value.
+dttl,Integer,Destination to source time to live value.
+sload,Float,Source bits per second.
+dload,Float,Destination bits per second.
+sloss,Integer,Source packets retransmitted or dropped.
+dloss,Integer,Destination packets retransmitted or dropped.
+sinpkt,Float,Source interpacket arrival time (mSec).
+dinpkt,Float,Destination interpacket arrival time (mSec).
+sjit,Float,Source jitter (mSec).
+djit,Float,Destination jitter (mSec).
+swin,Integer,Source TCP window advertisement value.
+stcpb,Integer,Source TCP base sequence number.
+dtcpb,Integer,Destination TCP base sequence number.
+dwin,Integer,Destination TCP window advertisement value.
+tcprtt,Float,"TCP connection setup round-trip time, the sum of synack and ackdat."
+synack,Float,"TCP connection setup time, the time between the SYN and the SYN_ACK packets."
+ackdat,Float,"TCP connection setup time, the time between the SYN_ACK and the ACK packets."
+smean,Integer,Mean of the flow packet size transmitted by the src.
+dmean,Integer,Mean of the flow packet size transmitted by the dst.
+trans_depth,Integer,Represents the pipelined depth into the connection of http request/response transaction.
+response_body_len,Integer,Actual uncompressed content size of the data transferred from the server’s http service.
+ct_srv_src,Integer,No. of connections that contain the same service and source address in 100 connections according to the last time.
+ct_state_ttl,Integer,No. for each state according to specific range of values for source/destination time-to-live.
+ct_dst_ltm,Integer,No. of connections of the same destination address in 100 connections according to the last time.
+ct_src_dport_ltm,Integer,No of connections of the same source address and the destination port in 100 connections according to the last time.
+ct_dst_sport_ltm,Integer,No of connections of the same destination address and the source port in 100 connections according to the last time.
+ct_dst_src_ltm,Integer,No of connections of the same source and the destination address in in 100 connections according to the last time.
+is_ftp_login,Binary,If the ftp session is accessed by user and password then 1 else 0. 
+ct_ftp_cmd,Integer,No of flows that has a command in ftp session.
+ct_flw_http_mthd,Integer,No. of flows that has methods such as Get and Post in http service.
+ct_src_ltm,Integer,No. of records of the srcip in 100 records according to the ltime.
+ct_srv_dst,Integer,No. of connections that contain the same service and destination address in 100 connections according to the last time.
+is_sm_ips_ports,Binary,"If source and destination IP addresses equal and port numbers equal then, this variable takes value 1 else 0."
+attack_cat,Nominal,The name of each attack category.
+label,Binary,Normal (0) or attack (1) label.

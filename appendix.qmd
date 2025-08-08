@@ -15,7 +15,7 @@ df = pd.read_csv("data/dictionary.csv", encoding="windows-1252")
 md_table = tabulate(df, headers='keys', tablefmt='github', showindex=False)
 
 # Display as Markdown
-latex_prefix = "\\footnotesize\n\n"  # or use \\footnotesize
+latex_prefix = "\\scriptsize\n\n"  # or use \\footnotesize
 display(Markdown(latex_prefix + md_table))
 ```
 
