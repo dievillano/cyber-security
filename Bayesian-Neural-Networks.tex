@@ -435,7 +435,9 @@ encoded columns, yielding a compact and interpretable set of predictors
 for subsequent modelling.
 
 \section{Bayesian Neural Networks
-(BNN)}\label{bayesian-neural-networks-bnn}
+(BNNs)}\label{bayesian-neural-networks-bnns}
+
+\subsection{Neural Networks (NNs)}\label{neural-networks-nns}
 
 Neural networks (NNs) are hierarchical models composed of an input
 layer, one or more hidden layers, and an output layer, where each layer
@@ -501,25 +503,169 @@ which extends SGD by incorporating adaptive learning rates and momentum
 terms. Adam is computationally efficient, requires minimal memory, and
 often converges faster in practice (12).
 
-\subsection{Priors}\label{priors}
+This setup is equivalent to finding the maximum likelihood estimates
+(MLE) of \(\mathbf{w}\) (13). Since the parameters are treated as fixed
+quantities, this corresponds to a frequentist approach to training NNs.
+Under this traditional framework, NNs have demonstrated remarkable
+performance across a wide range of challenging tasks, including object
+recognition, speech recognition, and natural language understanding
+(11). Their success stems from a combination of factors: high expressive
+power due to their complexity and over-parameterisation; beneficial
+inductive biases introduced through architectural design; and
+flexibility to mitigate overfitting via explicit and implicit
+regularisation techniques (10). Together, these characteristics enable
+NNs to achieve strong generalisation in diverse application domains.
+
+\subsection{The Bayesian Approach}\label{the-bayesian-approach}
+
+However, the frequentist approach to neural networks presents important
+limitations, particularly in safety-critical real-world applications
+such as medical diagnosis and cyber-security (10). In particular, neural
+networks often produce miscalibrated or overconfident predicted class
+probabilities in classification tasks, are sensitive to
+out-of-distribution samples and domain shifts, are vulnerable to
+adversarial attacks, lack inherent human interpretability (often
+functioning as ``black-box'' models), and may generalise poorly when
+data is limited (10,11). A variety of strategies have been proposed to
+address these issues, with Bayesian neural networks (BNNs) standing out
+as one of the most rigorous and conceptually intuitive frameworks for
+building robust, uncertainty-aware models (11).
+
+BNNs differ from their frequentist counterparts in that the parameters
+\(\mathbf{w} \in \mathbfcal{W}\) are treated as random variables endowed
+with a prior distribution \(p(\mathbf{w})\). Given a dataset
+\(D = \{(\mathbf{x}_i, y_i)\}_{i=1}^N\) and a likelihood function
+\(p(D | \mathbf{w})\) describing how the parameters generate the
+observed data, the Bayesian approach seeks to infer the posterior
+distribution
+
+\[
+p(\mathbf{w} | D) = \frac{p(D | \mathbf{w})\, p(\mathbf{w})}{p(D)} \propto p(D | \mathbf{w})\, p(\mathbf{w}).
+\]
+
+For NNs, however, this posterior is typically a high-dimensional, highly
+non-convex probability distribution (11). Moreover, computing it exactly
+requires evaluating the evidence
+
+\[
+p(D) = \int_{\mathbfcal{W}} p(D | \mathbf{w})\, p(\mathbf{w}) \, d\mathbf{w},
+\]
+
+an integral over a vast and non-linear parameter space. This calculation
+is analytically intractable and computationally prohibitive, even for
+moderately sized networks. Consequently, to estimate the posterior, BNNs
+rely on sampling methods such as Markov chain Monte Carlo (MCMC) or
+approximation methods such as variational inference (VI) (11).
+
+Given \(p(\mathbf{w} | D)\), the posterior predictive distribution for a
+new observation \(y^{*}\) associated with some input \(\mathbf{x}^{*}\),
+\(p(y^{*} | \mathbf{x}^{*}, D)\), is given by
+
+\[
+p(y^{*} | \mathbf{x}^{*}, D) = \mathbb{E}\!\left[p(y^{*} | \mathbf{x}^{*}, \mathbf{w}) | D\right] 
+= \int_{\mathbfcal{W}} p(y^{*} | \mathbf{x}^{*}, \mathbf{w}) \, p(\mathbf{w} | D) \, d\mathbf{w}.
+\]
+
+In practice, direct evaluation of this integral is intractable, so it is
+commonly approximated by drawing samples
+\(\mathbf{w}^{(s)} \sim p(\mathbf{w} | D)\) and computing the
+corresponding likelihood terms
+\(p(y^{*} | \mathbf{x}^{*}, \mathbf{w}^{(s)})\). These values are then
+averaged using a Monte Carlo estimator, yielding an empirical
+approximation of the posterior predictive distribution (11). This
+process naturally incorporates epistemic uncertainty (uncertainty in the
+model parameters) by marginalising over the posterior
+\(p(\mathbf{w} | D)\). This type of uncertainty is distinct from
+aleatoric uncertainty, which stems from inherent noise in the data and
+cannot be reduced by collecting additional observations (10,11).
+
+BNNs provide a principled approach to uncertainty quantification by
+explicitly modelling the posterior over the network parameters. This
+yields better-calibrated predictions than conventional NNs, where
+predicted probabilities more accurately reflect empirical frequencies,
+thereby reducing both overconfidence and underconfidence (11). By
+disentangle epistemic from aleatoric uncertainty, BNNs also exhibit
+improved robustness: for out-of-distribution samples, they express high
+epistemic uncertainty rather than unjustified confidence (11).
+
+Beyond uncertainty quantification, BNNs offer a coherent framework for
+incorporating prior knowledge into neural networks as inductive bias,
+making explicit what is often only implicit in other learning algorithms
+(11). Priors can act as soft constraints, analogous to regularisation,
+and many established deep neural network techniques, such as ensembling
+or data augmentation, can be interpreted through a Bayesian lens. This
+perspective not only deepens theoretical understanding but also provides
+a systematic basis for developing new learning strategies, even when
+exact Bayesian inference is computationally infeasible (11).
 
 \subsection{Inference Methods}\label{inference-methods}
 
 \subsubsection{Markov Chain Monte Carlo
 (MCMC)}\label{markov-chain-monte-carlo-mcmc}
 
+Markov Chain Monte Carlo (MCMC) methods approximate the posterior
+distribution of BNN parameters by constructing a Markov chain whose
+stationary distribution matches the desired posterior (11). While
+conceptually straightforward, applying MCMC to BNNs is computationally
+challenging due to the high dimensionality of the parameter space and
+the strong correlations between parameters(11). While generic MCMC
+algorithms like Gibbs sampling are ill-suited to BNNs, the
+Metropolis--Hastings (MH) algorithm is more applicable, as it requires
+only a distribution proportional to the posterior rather than its
+normalising constant (11).
+
+Hamiltonian Monte Carlo (HMC) (14) improves the efficiency of the MH
+algorithm by leveraging gradient information to guide proposals along
+trajectories that better explore the posterior, reducing random-walk
+behaviour and improving mixing in high dimensions (15). However, HMC's
+performance depends on careful tuning of the step size and the number of
+leapfrog steps, which can be difficult in practice.The No-U-Turn Sampler
+(NUTS) (15) extends HMC by removing the need to predefine the trajectory
+length. It adaptively stops simulating the Hamiltonian dynamics when the
+trajectory begins to double back on itself, avoiding inefficient
+exploration (15). NUTS also uses a primal--dual averaging scheme to
+automatically tune the step size, making it a robust and largely
+hand-free MCMC method (15). These features make NUTS particularly
+well-suited for BNNs, where efficient sampling in high-dimensional,
+multimodal posteriors is crucial.
+
 \subsubsection{Variational Inference
 (VI)}\label{variational-inference-vi}
 
-\subsection{Convergence}\label{convergence}
+While Markov Chain Monte Carlo (MCMC) methods provide exact samples from
+the posterior, their limited scalability has shifted focus towards
+variational inference (VI) as a more computationally efficient
+alternative for Bayesian neural networks (BNNs). VI approximates the
+true posterior \(p(\mathbf{w} \mid D)\) with a variational distribution
+\(q_{\phi}(\mathbf{w})\), parameterized by \(\phi\), which is optimized
+to minimize the Kullback-Leibler (KL) divergence between the two
+distributions (11). This optimization is commonly recast as maximizing
+the evidence lower bound (ELBO), which can be efficiently optimized
+using stochastic gradient descent (SGD) or Adam optimizers, enabling
+scalability to large datasets (11). Distributions from the exponential
+family, particularly Gaussian distributions, are popular choices for
+\(q_{\phi}(\mathbf{w})\) due to their mathematical convenience and
+tractability (11).
 
-\section{Model Benchmarking}\label{model-benchmarking}
+Several widely used VI algorithms for BNNs, including Bayes-by-Backprop
+(16) and probabilistic backpropagation (17), rely on the mean-field
+assumption, which treats network weights as independent in the
+variational posterior. Although this assumption simplifies computation
+and facilitates scalable inference, it is often overly restrictive and
+can lead to underestimated uncertainty by ignoring dependencies among
+parameters (10). More expressive variational distributions, such as
+full-covariance multivariate Gaussians, aim to mitigate these
+limitations. Nonetheless, VI methods are known to suffer from mode
+collapse, focusing on a single mode of the posterior despite the
+multimodal nature commonly observed in BNN posteriors (10).
+Consequently, achieving accurate variational approximations in deep
+neural networks remains challenging and typically requires careful
+hyperparameter tuning (10).
 
-\subsection{Prediction Accuracy}\label{prediction-accuracy}
+\section{Benchmarking on Cyber-Attack
+Detection}\label{benchmarking-on-cyber-attack-detection}
 
-\subsection{Calibration}\label{calibration}
-
-\subsection{Running Time}\label{running-time}
+Prediction Accuracy, Calibration, Running Time
 
 \section{Interpretability Analysis}\label{interpretability-analysis}
 
@@ -612,6 +758,34 @@ IEEE Computational Intelligence Magazine. 2022;17(2):29--48. }
 \CSLLeftMargin{12. }%
 \CSLRightInline{Adam KDBJ et al. A method for stochastic optimization.
 arXiv preprint arXiv:14126980. 2014;1412(6). }
+
+\bibitem[\citeproctext]{ref-goodfellow2016deep}
+\CSLLeftMargin{13. }%
+\CSLRightInline{Goodfellow I, Bengio Y, Courville A, Bengio Y. Deep
+learning. Vol. 1. MIT press Cambridge; 2016. }
+
+\bibitem[\citeproctext]{ref-neal2011mcmc}
+\CSLLeftMargin{14. }%
+\CSLRightInline{Neal RM et al. MCMC using hamiltonian dynamics. Handbook
+of markov chain monte carlo. 2011;2(11):2. }
+
+\bibitem[\citeproctext]{ref-hoffman2014no}
+\CSLLeftMargin{15. }%
+\CSLRightInline{Hoffman MD, Gelman A, et al. The no-u-turn sampler:
+Adaptively setting path lengths in hamiltonian monte carlo. J Mach Learn
+Res. 2014;15(1):1593--623. }
+
+\bibitem[\citeproctext]{ref-blundell2015weight}
+\CSLLeftMargin{16. }%
+\CSLRightInline{Blundell C, Cornebise J, Kavukcuoglu K, Wierstra D.
+Weight uncertainty in neural network. In: International conference on
+machine learning. PMLR; 2015. p. 1613--22. }
+
+\bibitem[\citeproctext]{ref-hernandez2015probabilistic}
+\CSLLeftMargin{17. }%
+\CSLRightInline{Hernández-Lobato JM, Adams R. Probabilistic
+backpropagation for scalable learning of bayesian neural networks. In:
+International conference on machine learning. PMLR; 2015. p. 1861--9. }
 
 \end{CSLReferences}
 

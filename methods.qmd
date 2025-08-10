@@ -26,7 +26,9 @@ First, after preprocessing (see earlier section), we computed the Spearman corre
 
 In the second stage, we employed a random forest (RF) classifier to assess feature relevance using permutation importance. The training data was split into a sub-training and validation set using stratified sampling to preserve the class distribution, allocating 20% of the data for validation. A model was then trained using a grid search with 5-fold stratified cross-validation, optimising the F1 score. Although this was not the final predictive model, we carefully selected the hyperparameter grid to reduce overfitting. Specifically, we tuned the number of trees ({1000, 1500}), maximum tree depth ({3, 5}), and minimum number of samples required to split an internal node ({10, 15}) [@sklearn-rfclassifier]. In addition, we addressed class imbalance by applying class weights in the learning algorithm, using the "balanced" scheme, which assigns weights inversely proportional to class frequencies [@sklearn-rfclassifier]. After selecting the best-performing model, permutation importance was computed on the validation set by measuring the average decrease in F1 score when each feature was randomly shuffled across 10 repetitions. To further simplify the feature space, we grouped the importance scores of one-hot encoded variables by their original categorical variable (e.g., all `proto_*` columns were aggregated under `proto`). We then selected the top ten base features and retained all corresponding encoded columns, yielding a compact and interpretable set of predictors for subsequent modelling.
 
-## Bayesian Neural Networks (BNN)
+## Bayesian Neural Networks (BNNs)
+
+### Neural Networks (NNs)
 
 Neural networks (NNs) are hierarchical models composed of an input layer, one or more hidden layers, and an output layer, where each layer consists of units that perform a linear transformation followed by a non-linear activation function [@arbel2023primer]. Training a neural network involves finding the set of weights and biases at the hidden and output layers that minimise a specified loss function, typically using gradient-based optimisation algorithms, such as stochastic gradient descent (SGD), and backpropagation [@jospin2022hands].
 
@@ -39,7 +41,7 @@ $$
 \end{aligned}
 $$
 
-where $\mathbf{w}^{(l)}$ is the weight matrix of dimensions $H_l \times H_{l-1}$, $\mathbf{b}^{(l)}$ is a bias vector of length $H_l$, $\mathbf{h}^{(l-1)}(\mathbf{x})$ denotes the post-activation values of the previous layer (with $\mathbf{h}^{(0)} = \mathbf{x}$), and $\mathbf{g}^{(l)}(\mathbf{x})$ are the pre-activation values. For the output layer, the pre-activation values are computed as $\mathbf{g}^{(L+1)}(\mathbf{x}) = \mathbf{w}^{(L+1)} \mathbf{h}^{(L)}(\mathbf{x}) + \mathbf{b}^{(L+1)}$, and the activation function for the output layer is chosen to match the distribution of the target variable; for example, a sigmoid function for a Bernoulli-distributed binary outcome $y \in {0,1}$. While $\phi$ is often fixed across layers, it may vary depending on the network architecture or specific application [@arbel2023primer].
+where $\mathbf{w}^{(l)}$ is the weight matrix of dimensions $H_l \times H_{l-1}$, $\mathbf{b}^{(l)}$ is a bias vector of length $H_l$, $\mathbf{h}^{(l-1)}(\mathbf{x})$ denotes the post-activation values of the previous layer (with $\mathbf{h}^{(0)} = \mathbf{x}$), and $\mathbf{g}^{(l)}(\mathbf{x})$ are the pre-activation values. For the output layer, the pre-activation value is $g^{(L+1)}(\mathbf{x}) = \mathbf{w}^{(L+1)} \mathbf{h}^{(L)}(\mathbf{x}) + b^{(L+1)}$, where, in the binary classification setting, $\mathbf{w}^{(L+1)} \in \mathbb{R}^{H_L}$ is the weight vector connecting the last hidden layer to the single output neuron, and $b^{(L+1)} \in \mathbb{R}$ is the scalar bias. The output-layer activation function is selected to match the target variable’s distribution; for example, the sigmoid function is used for a Bernoulli-distributed binary outcome $y \in \{0,1\}$. While $\phi$ is often fixed across layers, it may vary depending on the network architecture or specific application [@arbel2023primer]. Some popular choices are the hyperbolic tangent function (tanh), the rectified linear unit (ReLU) function, and the softmax function for multi-class classification tasks.
 
 A widely used loss function for binary classification is the binary cross-entropy (BCE), also known as log loss. Let $\mathbf{w}$ denote the set of all parameters (weights and biases) in the neural network, and let $f(\mathbf{x}_i; \mathbf{w})$ represent the predicted probability output by the network for input $\mathbf{x}_i$. Given a dataset $\{(\mathbf{x}_i, y_i)\}_{i=1}^N$, where $y_i \in \{0,1\}$, the BCE is defined as
 
@@ -55,22 +57,87 @@ $$
 
 This optimisation is typically performed using SGD, where gradients are estimated at each iteration using randomly selected subsets of the data, known as mini-batches [@arbel2023primer]. Because the optimiser does not need to process the entire dataset at each step, but only a small random portion of it, SGD is particularly well suited for large-scale datasets. Another widely used stochastic optimiser is Adam (adaptive moment estimation), which extends SGD by incorporating adaptive learning rates and momentum terms. Adam is computationally efficient, requires minimal memory, and often converges faster in practice [@adam2014method].
 
+This setup is equivalent to finding the maximum likelihood estimates (MLE) of $\mathbf{w}$ [@goodfellow2016deep]. Since the parameters are treated as fixed quantities, this corresponds to a frequentist approach to training NNs. Under this traditional framework, NNs have demonstrated remarkable performance across a wide range of challenging tasks, including object recognition, speech recognition, and natural language understanding [@jospin2022hands]. Their success stems from a combination of factors: high expressive power due to their complexity and over-parameterisation; beneficial inductive biases introduced through architectural design; and flexibility to mitigate overfitting via explicit and implicit regularisation techniques [@arbel2023primer]. Together, these characteristics enable NNs to achieve strong generalisation in diverse application domains. 
+
+### The Bayesian Approach
+
+However, the frequentist approach to neural networks presents important limitations, particularly in safety-critical real-world applications such as medical diagnosis and cyber-security [@arbel2023primer]. In particular, neural networks often produce miscalibrated or overconfident predicted class probabilities in classification tasks, are sensitive to out-of-distribution samples and domain shifts, are vulnerable to adversarial attacks, lack inherent human interpretability (often functioning as “black-box” models), and may generalise poorly when data is limited [@arbel2023primer; @jospin2022hands]. A variety of strategies have been proposed to address these issues, with Bayesian neural networks (BNNs) standing out as one of the most rigorous and conceptually intuitive frameworks for building robust, uncertainty-aware models [@jospin2022hands].
+
+BNNs differ from their frequentist counterparts in that the parameters $\mathbf{w} \in \mathbfcal{W}$ are treated as random variables endowed with a prior distribution $p(\mathbf{w})$. Given a dataset $D = \{(\mathbf{x}_i, y_i)\}_{i=1}^N$ and a likelihood function $p(D | \mathbf{w})$ describing how the parameters generate the observed data, the Bayesian approach seeks to infer the posterior distribution
+
+$$
+p(\mathbf{w} | D) = \frac{p(D | \mathbf{w})\, p(\mathbf{w})}{p(D)} \propto p(D | \mathbf{w})\, p(\mathbf{w}).
+$$
+
+For NNs, however, this posterior is typically a high-dimensional, highly non-convex probability distribution [@jospin2022hands]. Moreover, computing it exactly requires evaluating the evidence
+
+$$
+p(D) = \int_{\mathbfcal{W}} p(D | \mathbf{w})\, p(\mathbf{w}) \, d\mathbf{w},
+$$
+
+an integral over a vast and non-linear parameter space. This calculation is analytically intractable and computationally prohibitive, even for moderately sized networks. Consequently, to estimate the posterior, BNNs rely on sampling methods such as Markov chain Monte Carlo (MCMC) or approximation methods such as variational inference (VI) [@jospin2022hands].
+
+Given $p(\mathbf{w} | D)$, the posterior predictive distribution for a new observation $y^{*}$ associated with some input $\mathbf{x}^{*}$, $p(y^{*} | \mathbf{x}^{*}, D)$, is given by
+
+$$
+p(y^{*} | \mathbf{x}^{*}, D) = \mathbb{E}\!\left[p(y^{*} | \mathbf{x}^{*}, \mathbf{w}) | D\right] 
+= \int_{\mathbfcal{W}} p(y^{*} | \mathbf{x}^{*}, \mathbf{w}) \, p(\mathbf{w} | D) \, d\mathbf{w}.
+$$
+
+In practice, direct evaluation of this integral is intractable, so it is commonly approximated by drawing samples $\mathbf{w}^{(s)} \sim p(\mathbf{w} | D)$ and computing the corresponding likelihood terms $p(y^{*} | \mathbf{x}^{*}, \mathbf{w}^{(s)})$. These values are then averaged using a Monte Carlo estimator, yielding an empirical approximation of the posterior predictive distribution [@jospin2022hands]. This process naturally incorporates epistemic uncertainty (uncertainty in the model parameters) by marginalising over the posterior $p(\mathbf{w} | D)$. This type of uncertainty is distinct from aleatoric uncertainty, which stems from inherent noise in the data and cannot be reduced by collecting additional observations [@jospin2022hands; @arbel2023primer].
+
+BNNs provide a principled approach to uncertainty quantification by explicitly modelling the posterior over the network parameters. This yields better-calibrated predictions than conventional NNs, where predicted probabilities more accurately reflect empirical frequencies, thereby reducing both overconfidence and underconfidence [@jospin2022hands]. By disentangle epistemic from aleatoric uncertainty, BNNs also exhibit improved robustness: for out-of-distribution samples, they express high epistemic uncertainty rather than unjustified confidence [@jospin2022hands].
+
+Beyond uncertainty quantification, BNNs offer a coherent framework for incorporating prior knowledge into neural networks as inductive bias, making explicit what is often only implicit in other learning algorithms [@jospin2022hands]. Priors can act as soft constraints, analogous to regularisation, and many established deep neural network techniques, such as ensembling or data augmentation, can be interpreted through a Bayesian lens. This perspective not only deepens theoretical understanding but also provides a systematic basis for developing new learning strategies, even when exact Bayesian inference is computationally infeasible [@jospin2022hands].
+
 ### Priors
+
+**PRIORs, why are they difficult in BNN, equivalences with regularization** A primer and What are
+
 
 ### Inference Methods
 
 #### Markov Chain Monte Carlo (MCMC)
 
+Markov Chain Monte Carlo (MCMC) methods approximate the posterior distribution of BNN parameters by constructing a Markov chain whose stationary distribution matches the desired posterior [@jospin2022hands]. While conceptually straightforward, applying MCMC to BNNs is computationally challenging due to the high dimensionality of the parameter space and the strong correlations between parameters[@jospin2022hands]. While generic MCMC algorithms like Gibbs sampling are ill-suited to BNNs, the Metropolis–Hastings (MH) algorithm is more applicable, as it requires only a distribution proportional to the posterior rather than its normalising constant [@jospin2022hands].
+
+Hamiltonian Monte Carlo (HMC) [@neal2011mcmc] improves the efficiency of the MH algorithm by leveraging gradient information to guide proposals along trajectories that better explore the posterior, reducing random-walk behaviour and improving mixing in high dimensions [@hoffman2014no]. However, HMC’s performance depends on careful tuning of the step size and the number of leapfrog steps, which can be difficult in practice.The No-U-Turn Sampler (NUTS) [@hoffman2014no] extends HMC by removing the need to predefine the trajectory length. It adaptively stops simulating the Hamiltonian dynamics when the trajectory begins to double back on itself, avoiding inefficient exploration [@hoffman2014no]. NUTS also uses a primal–dual averaging scheme to automatically tune the step size, making it a robust and largely hand-free MCMC method [@hoffman2014no]. These features make NUTS particularly well-suited for BNNs, where efficient sampling in high-dimensional, multimodal posteriors is crucial.
+
 #### Variational Inference (VI)
+While MCMC methods provide exact samples from the posterior, their limited scalability has shifted focus towards variational inference (VI) as a more computationally efficient alternative for Bayesian neural networks (BNNs). VI approximates the true posterior $p(\mathbf{w} | D)$ with a variational distribution $q_{\phi}(\mathbf{w})$, parameterized by $\phi$, which is optimized to minimize the Kullback-Leibler (KL) divergence between the two distributions [@jospin2022hands]. This optimization is commonly recast as maximizing the evidence lower bound (ELBO), which can be efficiently optimized using stochastic gradient descent (SGD) or Adam optimizers, enabling scalability to large datasets [@jospin2022hands]. Distributions from the exponential family, particularly Gaussian distributions, are popular choices for $q_{\phi}(\mathbf{w})$ due to their mathematical convenience and tractability [@jospin2022hands].
 
-### Convergence 
+Several widely used VI algorithms for BNNs, including Bayes-by-Backprop [@blundell2015weight] and probabilistic backpropagation [@hernandez2015probabilistic], rely on the mean-field assumption, which treats network parameters as independent in the variational posterior. Although this assumption simplifies computation and facilitates scalable inference, it is often overly restrictive and can lead to underestimated uncertainty by ignoring dependencies among parameters [@arbel2023primer]. More expressive variational distributions, such as full-covariance multivariate Gaussians, aim to mitigate these limitations. Nonetheless, VI methods are known to suffer from mode collapse, focusing on a single mode of the posterior despite the multimodal nature commonly observed in BNN posteriors [@arbel2023primer]. Consequently, achieving accurate variational approximations in deep neural networks remains challenging and typically requires careful hyperparameter tuning [@arbel2023primer].
 
-## Model Benchmarking 
+## Benchmarking BNNs
 
-### Prediction Accuracy
+We conducted experiments to evaluate the performance of BNNs for detecting DoS cyber-attacks using the UNSW-NB15 dataset. Model performance was assessed using precision, recall, and the $F_1$ score. Precision measures the proportion of correctly identified cyber-attacks among all instances predicted as cyber-attacks, while recall measures the proportion of correctly identified cyber-attacks among all actual cyber-attacks. The $F_1$ score, the harmonic mean of precision and recall, provides a single metric that balances both aspects. All three metrics take values in $[0,1]$, with values closer to 1 indicating better performance.
 
-### Calibration
+BNNs with a single hidden layer ($L = 1$) and ReLU activations were trained under multiple configurations and evaluated on a validation set of 1,000 samples randomly drawn from the training data. While precision, recall, and $F_1$ scores were computed, model selection was based solely on the $F_1$ score. The selected BNN was compared against its frequentist counterpart (identical architecture, but without priors on the parameters) and a gradient-boosted decision tree (GBDT), the latter being a strong baseline for classification tasks, particularly on tabular data.
 
-### Running Time
+For the BNN experiments, we varied:
+
+1. Inference method: Markov Chain Monte Carlo (MCMC) using the No-U-Turn Sampler (NUTS) and Variational Inference (VI).
+2. Variational distribution (for VI only): independent Gaussian (mean-field) or multivariate Gaussian.
+3. Prior precision: prior mean precisions of 0.5, 1, and 2.
+4. Hidden layer width ($H_1$): 5, 10, and 14 (equal to the number of features).
+
+BNNs were implemented in NumPyro [@phan2019composable; @bingham2019pyro], a probabilistic programming library for Python. In NumPyro, variational distributions are referred to as guides, and we adopt this terminology here. A zero-mean Gaussian prior was placed on the network parameters $\mathbf{w}$, assuming they were independent and identically distributed (i.i.d.). The prior variances were scaled analogously to the He initialisation scheme \[@he2015delving], which is particularly effective for networks with ReLU activations. Following this initialisation scheme, weights and biases in the single hidden layer ($H_1 \in \{5,10,14\}$) were specified as:
+
+$$
+w_{ij}^{(1)} \sim \mathcal{N}\left(0, \frac{2}{14 \tau}\right) \quad \text{and} \quad b_{i}^{(1)} \sim \mathcal{N}\left(0, \frac{2}{14 \tau}\right),
+$$
+
+for $i = 1, \ldots, 14$ and $j = 1, \ldots, H_1$. Similarly, for the output layer pre-activations:
+
+$$
+w_{i}^{(2)} \sim \mathcal{N}\left(0, \frac{2}{\tau H_1}\right) \quad \text{and} \quad b^{(2)} \sim \mathcal{N}\left(0, \frac{2}{\tau H_1}\right),
+$$
+
+for $i = 1, \ldots, H_1$. Here, $\tau$ represents a precision-like parameter controlling the scaling of the Gaussian distributions (not strictly the inverse of the variance). A Gamma prior was assigned to $\tau$ with shape $\alpha$ and rate $\beta$ parameters chosen so that the prior mean precision was 0.5 ($\alpha=1, \beta=2$), 1 ($\alpha=6, \beta=6$), or 2 ($\alpha=4, \beta=2$). 
+
+The hidden layer widths were selected to reflect different levels of model complexity, approximately corresponding to thirds of the input dimension. **Likelihood on y**.
+
+
 
 ## Interpretability Analysis
+
