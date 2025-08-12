@@ -466,13 +466,19 @@ where \(\mathbf{w}^{(l)}\) is the weight matrix of dimensions
 \(H_l\), \(\mathbf{h}^{(l-1)}(\mathbf{x})\) denotes the post-activation
 values of the previous layer (with \(\mathbf{h}^{(0)} = \mathbf{x}\)),
 and \(\mathbf{g}^{(l)}(\mathbf{x})\) are the pre-activation values. For
-the output layer, the pre-activation values are computed as
-\(\mathbf{g}^{(L+1)}(\mathbf{x}) = \mathbf{w}^{(L+1)} \mathbf{h}^{(L)}(\mathbf{x}) + \mathbf{b}^{(L+1)}\),
-and the activation function for the output layer is chosen to match the
-distribution of the target variable; for example, a sigmoid function for
-a Bernoulli-distributed binary outcome \(y \in {0,1}\). While \(\phi\)
+the output layer, the pre-activation value is
+\(g^{(L+1)}(\mathbf{x}) = \mathbf{w}^{(L+1)} \mathbf{h}^{(L)}(\mathbf{x}) + b^{(L+1)}\),
+where, in the binary classification setting,
+\(\mathbf{w}^{(L+1)} \in \mathbb{R}^{H_L}\) is the weight vector
+connecting the last hidden layer to the single output neuron, and
+\(b^{(L+1)} \in \mathbb{R}\) is the scalar bias. The output-layer
+activation function is selected to match the target variable's
+distribution; for example, the sigmoid function is used for a
+Bernoulli-distributed binary outcome \(y \in \{0,1\}\). While \(\phi\)
 is often fixed across layers, it may vary depending on the network
-architecture or specific application (10).
+architecture or specific application (10). Some popular choices are the
+hyperbolic tangent function (tanh), the rectified linear unit (ReLU)
+function, and the softmax function for multi-class classification tasks.
 
 A widely used loss function for binary classification is the binary
 cross-entropy (BCE), also known as log loss. Let \(\mathbf{w}\) denote
@@ -598,6 +604,11 @@ perspective not only deepens theoretical understanding but also provides
 a systematic basis for developing new learning strategies, even when
 exact Bayesian inference is computationally infeasible (11).
 
+\subsection{Priors}\label{priors}
+
+\textbf{PRIORs, why are they difficult in BNN, equivalences with
+regularization} A primer and What are
+
 \subsection{Inference Methods}\label{inference-methods}
 
 \subsubsection{Markov Chain Monte Carlo
@@ -632,11 +643,11 @@ multimodal posteriors is crucial.
 \subsubsection{Variational Inference
 (VI)}\label{variational-inference-vi}
 
-While Markov Chain Monte Carlo (MCMC) methods provide exact samples from
-the posterior, their limited scalability has shifted focus towards
-variational inference (VI) as a more computationally efficient
-alternative for Bayesian neural networks (BNNs). VI approximates the
-true posterior \(p(\mathbf{w} \mid D)\) with a variational distribution
+While MCMC methods provide exact samples from the posterior, their
+limited scalability has shifted focus towards variational inference (VI)
+as a more computationally efficient alternative for Bayesian neural
+networks (BNNs). VI approximates the true posterior
+\(p(\mathbf{w} | D)\) with a variational distribution
 \(q_{\phi}(\mathbf{w})\), parameterized by \(\phi\), which is optimized
 to minimize the Kullback-Leibler (KL) divergence between the two
 distributions (11). This optimization is commonly recast as maximizing
@@ -649,7 +660,7 @@ tractability (11).
 
 Several widely used VI algorithms for BNNs, including Bayes-by-Backprop
 (16) and probabilistic backpropagation (17), rely on the mean-field
-assumption, which treats network weights as independent in the
+assumption, which treats network parameters as independent in the
 variational posterior. Although this assumption simplifies computation
 and facilitates scalable inference, it is often overly restrictive and
 can lead to underestimated uncertainty by ignoring dependencies among
@@ -662,10 +673,88 @@ Consequently, achieving accurate variational approximations in deep
 neural networks remains challenging and typically requires careful
 hyperparameter tuning (10).
 
-\section{Benchmarking on Cyber-Attack
-Detection}\label{benchmarking-on-cyber-attack-detection}
+\section{Benchmarking BNNs}\label{benchmarking-bnns}
 
-Prediction Accuracy, Calibration, Running Time
+We conducted experiments to evaluate the performance of BNNs for
+detecting DoS cyber-attacks using the UNSW-NB15 dataset. Model
+performance was assessed using precision, recall, and the \(F_1\) score.
+Precision measures the proportion of correctly identified cyber-attacks
+among all instances predicted as cyber-attacks, while recall measures
+the proportion of correctly identified cyber-attacks among all actual
+cyber-attacks. The \(F_1\) score, the harmonic mean of precision and
+recall, provides a single metric that balances both aspects. All three
+metrics take values in \([0,1]\), with values closer to 1 indicating
+better performance.
+
+BNNs with a single hidden layer (\(L = 1\)) and ReLU activations were
+trained under multiple configurations and evaluated on a validation set
+of 1,000 samples randomly drawn from the training data. While precision,
+recall, and \(F_1\) scores were computed, model selection was based
+solely on the \(F_1\) score. The selected BNN was compared against its
+frequentist counterpart (identical architecture, but without priors on
+the parameters) and a gradient-boosted decision tree (GBDT), the latter
+being a strong baseline for classification tasks, particularly on
+tabular data.
+
+For the BNN experiments, we varied:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Inference method: Markov Chain Monte Carlo (MCMC) using the No-U-Turn
+  Sampler (NUTS) and Variational Inference (VI).
+\item
+  Variational distribution (for VI only): independent Gaussian
+  (mean-field) or multivariate Gaussian.
+\item
+  Prior precision: prior mean precisions of 0.5, 1, and 2.
+\item
+  Hidden layer width (\(H_1\)): 5, 10, and 14 (equal to the number of
+  features).
+\end{enumerate}
+
+BNNs were implemented in NumPyro (18,19), a probabilistic programming
+library for Python. In NumPyro, variational distributions are referred
+to as guides, and we adopt this terminology here. The hidden layer
+widths were selected to reflect different levels of model complexity,
+approximately corresponding to thirds of the input dimension (5, 10, and
+14). A zero-mean Gaussian prior was placed on the network parameters
+\(\mathbf{w}\), assuming they were independent and identically
+distributed (i.i.d.). The prior variances were scaled analogously to the
+He initialisation scheme {[}(20){]}, which is particularly effective for
+networks with ReLU activations. Following this initialisation scheme,
+weights and biases in the single hidden layer (\(H_1 \in \{5,10,14\}\))
+were specified as:
+
+\[
+w_{ij}^{(1)} \sim \mathcal{N}\left(0, \frac{2}{14 \tau}\right) \quad \text{and} \quad b_{i}^{(1)} \sim \mathcal{N}\left(0, \frac{2}{14 \tau}\right),
+\]
+
+for \(i = 1, \ldots, 14\) and \(j = 1, \ldots, H_1\). Similarly, for the
+output layer pre-activations:
+
+\[
+w_{i}^{(2)} \sim \mathcal{N}\left(0, \frac{2}{\tau H_1}\right) \quad \text{and} \quad b^{(2)} \sim \mathcal{N}\left(0, \frac{2}{\tau H_1}\right),
+\]
+
+for \(i = 1, \ldots, H_1\). Here, \(\tau\) represents a precision-like
+parameter controlling the scaling of the Gaussian distributions (not
+strictly the inverse of the variance). A Gamma prior was assigned to
+\(\tau\) with shape \(\alpha\) and rate \(\beta\) parameters chosen so
+that the prior mean precision was 0.5 (\(\alpha=1, \beta=2\)), 1
+(\(\alpha=6, \beta=6\)), or 2 (\(\alpha=4, \beta=2\)). Lastly, the
+outputs \(y_i\), for \(i=1,\ldots,N\), where \(N=67264\), the number of
+traning samples, where assumed to have a Bernoulli distribution with
+probability of attack \(p_i\) and a sigmoid (logistic) activation
+function:
+
+\[
+\begin{aligned}
+y_i &= \mathcal{B}(p_i) \\
+\text{logit}(p_i) &= \text{log}\left(\frac{p}{1-p}\right) = 
+\end{aligned}
+\]
 
 \section{Interpretability Analysis}\label{interpretability-analysis}
 
@@ -786,6 +875,26 @@ machine learning. PMLR; 2015. p. 1613--22. }
 \CSLRightInline{Hernández-Lobato JM, Adams R. Probabilistic
 backpropagation for scalable learning of bayesian neural networks. In:
 International conference on machine learning. PMLR; 2015. p. 1861--9. }
+
+\bibitem[\citeproctext]{ref-phan2019composable}
+\CSLLeftMargin{18. }%
+\CSLRightInline{Phan D, Pradhan N, Jankowiak M. Composable effects for
+flexible and accelerated probabilistic programming in NumPyro. arXiv
+preprint arXiv:191211554. 2019; }
+
+\bibitem[\citeproctext]{ref-bingham2019pyro}
+\CSLLeftMargin{19. }%
+\CSLRightInline{Bingham E, Chen JP, Jankowiak M, Obermeyer F, Pradhan N,
+Karaletsos T, et al. Pyro: Deep universal probabilistic programming. J
+Mach Learn Res {[}Internet{]}. 2019;20:28:1--6. Available from:
+\url{http://jmlr.org/papers/v20/18-403.html}}
+
+\bibitem[\citeproctext]{ref-he2015delving}
+\CSLLeftMargin{20. }%
+\CSLRightInline{He K, Zhang X, Ren S, Sun J. Delving deep into
+rectifiers: Surpassing human-level performance on imagenet
+classification. In: Proceedings of the IEEE international conference on
+computer vision. 2015. p. 1026--34. }
 
 \end{CSLReferences}
 
