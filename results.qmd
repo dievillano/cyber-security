@@ -1,3 +1,88 @@
 # Results {sec-results}
 
+After feature engineering, 55 features were obtained from numeric, nominal, and ordinal variables, of which 43 were retained based on mutual information with the class label. A Random Forest (RF) classifier trained with these features and cross-validation achieved an average $F_1$ score of $0.936 \ (\pm 0.003)$ using 1,500 trees, a maximum depth of 5, and a minimum of 15 samples per split (see @tbl-rf). Permutation importance identified `smean`, `sbytes`, `sload`, `ct_srv_src`, and `proto` as the top five predictors, which were used in subsequent classifier construction (see @fig-importance).
+
+```{python}
+#| echo: false
+#| label: tbl-method-summ
+#| tbl-cap: "Summary of predictive performance and calibration quality on validation subset, along with training time for each inference method. Metrics include F1 score, log loss, Brier score (BS), expected calibration error (ECE), and training duration in seconds. Values are reported as mean (± standard deviation) across models."
+import pandas as pd
+from tabulate import tabulate
+from IPython.display import Markdown
+
+summary_df = pd.read_csv('results/method_summary.csv')
+
+summary_display_df = summary_df.copy()
+
+# Round all metric columns
+summary_display_df = summary_display_df.round(3)
+
+# List of metrics (without '_mean' or '_std')
+metrics = [
+    'f1', 'log_loss', 'brier', 'ece', 'duration_seconds'
+]
+
+# Create combined columns: 'mean (± SD)'
+combined_data = []
+for _, row in summary_display_df.iterrows():
+    combined_row = [row['method_label']]
+    for m in metrics:
+        mean_val = row[f'{m}_mean']
+        std_val = row[f'{m}_std']
+        combined_row.append(f'{mean_val} (± {std_val})')
+    combined_data.append(combined_row)
+
+# Headers
+headers = ['Method', 'F1', 'Log Loss', 'BS', 'ECE', 'Duration']
+
+# Column alignment: first column left, others center
+colalign = ('left',) + ('center',) * (len(headers) - 1)
+
+# Create Markdown table
+tbl_md = tabulate(
+    combined_data,
+    headers=headers,
+    tablefmt='pipe',
+    colalign=colalign,
+    showindex=False
+)
+
+latex_prefix = "\\scriptsize\n\n"  # or use \\footnotesize
+latex_suffix = "\n\n\\normalsize"
+display(Markdown(latex_prefix + tbl_md + latex_suffix))
+```
+
+@tbl-method-summ presents the average prediction performance and calibration quality metrics on the validation subset for each inference method used to fit the BNNs. The variational inference (VI) method with a mean-field Gaussian guide is denoted as MFG-VI, and the VI method with a multivariate Gaussian guide as MVG-VI. Average training duration (in seconds) is also reported. 
+
+The No-U-Turn Sampler (NUTS) produced BNNs with the best predictive performance and calibration, achieving an average $F_1$ of $0.944 \ (\pm 0.012)$, log loss of $0.053 \ (\pm 0.013)$—nearly half that of VI—and approximately half the calibration error (Brier score $0.015 \ (\pm 0.004)$; ECE $0.011 \ (\pm 0.003)$). These gains came at a high computational cost: each model required ~1,788 seconds (~30 min) to train versus 15–20 seconds with VI, amounting to ~4.5 hours for all nine NUTS configurations. MFG-VI and MVG-VI had similar predictive performance, though MVG-VI was slightly better calibrated.
+
+![$F_1$ scores across hidden layer widths and prior precisions for each inference method.](figures/f1_width_cat_precisionprior_by_method.png){#fig-f1}
+
+@fig-f1 shows $F_1$ scores by hidden layer width and prior precision for each inference method. Overall, scale factor had little effect on performance, except for the MFG-VI BNN with width 5 and prior precision 0.01, which had a lower $F_1$. This suggests models could update prior beliefs from the data, yielding similar posteriors across settings. Increasing hidden layer width provided minimal gains: NUTS models showed a slight upward trend, while VI models showed no clear improvement, except for the MFG-VI BNN with prior precision 0.01, which improved substantially with width.
+
+![Posterior means and 95% credible intervals of the precision parameter by hidden layer width and prior precision for each inference method.](figures/precision_post_mean_ci_by_method.png){#fig-posterior}
+
+To examine prior precision effects, @fig-posterior shows posterior means and 95% CIs for the precision parameter by hidden layer width and prior precision. NUTS-trained models with priors of 0.1 and 1 shifted toward ~0.01, indicating increased parameter variance, while models with a prior of 0.01 showed little change, with narrower CIs at larger widths. VI-trained models moved toward lower-variance parameters, with posterior means generally higher than NUTS and no consistent trend in width. Notably, a prior precision of 0.1 tended to produce more precise (narrower) posterior estimates for the precision parameter.
+
+![Histograms of the $\hat{R}$ statistic for models trained with NUTS by hidden layer width and prior precision.](figures/rhat_histograms.png){#fig-rhat}
+
+Histograms of the $\hat{R}$ statistic for NUTS-trained models are shown in @fig-rhat. Most values cluster near 1, indicating convergence, but some reach 10–15, signalling serious issues. ESS histograms in @fig-ess confirm many parameters have near-zero effective samples. Such results are expected for high-dimensional BNNs [@izmailov2021bayesian] and could be mitigated with longer chains, hyperparameter tuning, or thinning, but these approaches can be computationally prohibitive.
+
+![Histograms of effective sample sizes (ESS) for models trained with NUTS by hidden layer width and prior precision.](figures/ess_histograms.png){#fig-ess}
+
+Negative ELBO trace plots for VI models are shown in @fig-elbo. Values plateau around iteration 1,000 and remain stable by the end. MVG-VI models start with lower negative ELBOs than MFG-VI, suggesting more efficient posterior approximation, but both guides reach similar final values. However, comparable ELBOs do not guarantee high-quality approximations, as VI can suffer from mode collapse and guide flexibility is limited. These guides were chosen for demonstration; more expressive families could improve performance in practice.
+
+![ELBO traces for VI-trained BNNs across different hidden layer widths and prior precision levels.](figures/elbo_traces_by_method_width.png){#fig-elbo}
+
+The best-performing BNN classifier on the validation data had a hidden layer width of 14, a prior precision of 0.1, and was trained using NUTS, achieving an $F_1$ score of 0.958. Its prediction performance and calibration quality on the test set were compared with those of a neural network (NN) with the same hidden layer width and precision for parameter initialisation, a gradient boosting decision tree (GBDT) classifier, and calibrated versions of both the NN and GBDT classifiers. The results are shown in @fig-benchmarking. Alongside $F_1$ scores, precision and recall values are also reported. 
+
+![Test set performance of all classifiers, showing $F_1$, precision, recall, log loss, Brier score, and expected calibration error (ECE).](figures/benchmarking.png){#fig-benchmarking}
+
+Overall, all classifiers performed very well on the test set, with prediction metrics close to 1. The BNN achieved a very close test $F_1$ score to the GBDT and calibrated GBDT classifiers, the best-performing models, whereas the NN and calibrated NN scored slightly lower. Precision was similar across all models, but recall was noticeably lower for the NN and calibrated NN. For calibration metrics, the NN and calibrated NN performed substantially worse than the other models, with calibration improving only marginally and, in the case of the expected calibration error (ECE), even worsening. In terms of log loss, the GBDT classifiers achieved the lowest values, followed by the BNN, with a similar pattern observed for the Brier score. The BNN outperformed the GBDT models only on the ECE metric.
+
+![Test set calibration curves for all benchmarked models.](figures/calibration_curves.png){#fig-calibration}
+
+Calibration curves on the test set for the benchmarked models are shown in @fig-calibration. The BNN’s curve is the closest to the identity line, indicating the best calibration among the models, which is consistent with its lowest ECE value. In contrast, the NN and calibrated NN curves deviate the most from the identity line, matching their highest ECE values. Additionally, histograms of the predicted probabilities on the test set are shown in @fig-pred-probs. Concentrations of probabilities near 0 or 1 indicate high classifier confidence. This pattern is evident for the BNN, GBDT, and calibrated GBDT, whereas the NN and calibrated NN produce a larger proportion of intermediate probabilities, suggesting lower confidence for some test samples.
+
+![Histograms of predicted probabilities on the test set for all benchmarked models.](figures/pred_probs_hist.png){#fig-pred-probs}
 

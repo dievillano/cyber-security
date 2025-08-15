@@ -1,11 +1,17 @@
 # Appendix {.unnumbered}
 
-## Supplementary Tables
+## Word count
 
+The total word count on the main text is 4929:
+
+![](figures/word_count.png){width=40%}
+
+## Supplementary Tables
 
 ```{python}
 #| echo: false
-#| label: supptbl-dict
+#| label: tbl-dict
+#| tbl-cap: "Dictionary of variables in the training and testing subsets of the UNSW-NB15 dataset."
 import pandas as pd
 from IPython.display import Markdown
 from tabulate import tabulate
@@ -14,8 +20,45 @@ df = pd.read_csv("data/dictionary.csv", encoding="windows-1252")
 
 md_table = tabulate(df, headers='keys', tablefmt='github', showindex=False)
 
-# Display as Markdown
-latex_prefix = "\\scriptsize\n\n"  # or use \\footnotesize
+latex_prefix = "\\scriptsize\n\n" 
 display(Markdown(latex_prefix + md_table))
 ```
 
+```{python}
+#| echo: false
+#| label: tbl-rf
+#| tbl-cap: "Random Forest cross-validation results showing mean test F1 scores (± standard deviation) for different hyperparameter combinations, including maximum tree depth, minimum samples required to split a node, and number of trees."
+import pandas as pd
+from tabulate import tabulate
+import ast
+from IPython.display import Markdown
+
+rf_cv_results_df = pd.read_csv('results/rf_results.csv')
+params_dicts = rf_cv_results_df['params'].apply(ast.literal_eval)
+
+params_df = pd.DataFrame(params_dicts.tolist())
+
+rf_results_expanded = pd.concat([params_df, rf_cv_results_df[['mean_test_f1', 'std_test_f1']]], axis=1)
+
+rf_results_expanded['F1'] = rf_results_expanded.apply(
+    lambda row: f"{row['mean_test_f1']:.3f} (±{row['std_test_f1']:.3f})", axis=1
+)
+
+rf_results_table = rf_results_expanded[['max_depth', 'min_samples_split', 'n_estimators', 'F1']]
+
+headers = ["Max Depth", "Min. Samples to Split", "Trees", "F1 Score"]
+
+rf_tbl = tabulate(
+    rf_results_table,
+    headers=headers,
+    tablefmt="pipe",  
+    showindex=False,
+    colalign=("center",) * len(headers)  
+)
+
+display(Markdown(rf_tbl))
+```
+
+## Supplementary Figures
+
+![Feature importance for the random forest (RF) classifier.](figures/feature_importance.png){#fig-importance}

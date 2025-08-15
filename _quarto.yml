@@ -2,7 +2,7 @@ project:
   type: book
 
 book:
-  title: "Bayesian Neural Networks"
+  title: "Benchmarking Bayesian Neural Networks for Cyber-Attack Detection on the UNSW-NB15 Dataset"
   author: 
     - name: "Diego Cesar Villa Almeyda"
       affiliations:
@@ -17,6 +17,7 @@ book:
     - methods.qmd
     - results.qmd
     - conclusions.qmd
+    - genai.qmd
     - references.qmd
     - appendix.qmd
   

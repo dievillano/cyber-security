@@ -213,7 +213,8 @@ data/raw/
 bnn_numpyroexample.ipynb
 
 # Results
-results/
 /.quarto/
 
 .virtual_documents
+
+figures/signature.jpg

@@ -1,3 +1,10 @@
 # Introduction {sec-intro}
 
-This is a book created from markdown and executable code.
+In many critical domains, from cyber security to healthcare, accurate prediction is not the only requirement; quantifying uncertainty is equally essential. In cyber security, for example, misclassifying network traffic can have severe consequences, yet high-confidence predictions may be misleading if uncertainty is ignored. Bayesian Neural Networks (BNNs) offer a principled framework for capturing predictive uncertainty by treating network weights as probability distributions rather than fixed parameters. This probabilistic approach allows BNNs to provide not only class predictions but also calibrated measures of confidence, which is particularly valuable when dealing with imbalanced or high-stakes datasets.
+
+Despite their promise, BNNs remain challenging to implement in practice due to computational complexity and sensitivity to prior assumptions. Variational inference (VI) offers a scalable approach but may yield biased approximations of the posterior, while Markov Chain Monte Carlo (MCMC) methods, such as the No-U-Turn Sampler (NUTS), can produce high-fidelity posterior samples at the cost of substantial computational resources. In cyber-security applications, where real-time or near-real-time detection is often required, these trade-offs must be carefully evaluated.
+
+The primary objectives of this study are twofold. First, we evaluate different configurations of BNNs trained with NUTS and VI for binary classification of cyberattacks using the UNSW-NB15 dataset, examining predictive performance, calibration quality, and computational efficiency. This includes identifying which combinations of network architecture and prior assumptions yield the most accurate and reliable predictions. Second, we benchmark the best-performing BNN configuration against other competitive classifiers to determine whether the additional complexity of Bayesian approaches translates into tangible performance or calibration gains. Together, these objectives aim to provide a rigorous assessment of the practical utility of BNNs for cyber-attack detection, particularly in sensitive or high-risk applications where well-calibrated uncertainty estimates can enhance decision-making.
+
+
+

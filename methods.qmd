@@ -1,30 +1,33 @@
-# Methods {sec-methods}
+# Methods {#sec-methods}
 
 ## The UNSW-NB15 Network Dataset
 
-The UNSW-NB15 dataset [@moustafa2015unsw; @moustafa2016evaluation] was created to overcome the limitations of earlier benchmark datasets such as KDD99 and NSL-KDD, which have been criticised for outdated attack types, unrealistic normal traffic, and inconsistent distributions between training and testing sets. In contrast, UNSW-NB15 combines modern real-world network activity with synthetically generated attack behaviours, making it highly suitable for evaluating contemporary Network Intrusion Detection Systems (NIDSs). The dataset contains 49 features encompassing both flow-level host interactions and deep packet inspection metrics, enabling effective discrimination between normal and malicious traffic. It includes nine categories of contemporary cyberattacks alongside updated profiles of normal network behaviour. Statistically, UNSW-NB15 is more complex than its predecessors [@moustafa2016evaluation].
+The UNSW-NB15 dataset [@moustafa2015unsw; @moustafa2016evaluation] was developed to address the limitations of earlier benchmarks such as KDD99 and NSL-KDD, which have been criticised for outdated attack types, unrealistic normal traffic, and inconsistent training–test distributions. UNSW-NB15 combines modern real-world network activity with synthetically generated attacks, offering 49 features from both flow-level interactions and deep packet inspection. It includes nine contemporary attack categories and updated normal traffic profiles, making it well-suited for evaluating Network Intrusion Detection Systems (NIDSs).
 
-The full dataset comprises 2,540,044 records, of which 2,218,761 (approximately 87%) correspond to normal traffic, resulting in a highly imbalanced class distribution that reflects real-world network conditions [@zoghi2021unsw]. The training and testing subsets were obtained directly from the [UNSW website](https://research.unsw.edu.au/projects/unsw-nb15-dataset) [@unsw2015nb15], consisting of 175,341 and 82,332 records, respectively. Statistical analysis has demonstrated that the training and test sets share similar non-linear and non-normal feature distributions. Furthermore, high statistical correlation between the two sets supports their appropriateness as benchmark data for evaluating statistical and machine learning models tasked with distinguishing complex attack patterns from normal traffic [@moustafa2016evaluation]. Non-informative features were excluded from the distributed datasets, yielding a total of 42 usable predictors and two target variables: `label` (binary attack indicator) and `attack_cat` (attack category), as described in @supptbl-dict.
+The dataset contains 2,540,044 records, with 87% representing normal traffic, reflecting real-world class imbalance [@zoghi2021unsw]. Training (175,341 records) and testing (82,332 records) subsets were obtained from the [UNSW website](https://research.unsw.edu.au/projects/unsw-nb15-dataset) [@unsw2015nb15]. Both subsets share similar non-linear and non-normal feature distributions, as well as high statistical correlation, supporting their use in benchmarking. After excluding non-informative variables, 42 predictors remained alongside two targets: `label` (binary attack indicator) and `attack_cat` (attack category), described in @tbl-dict.
 
-An initial examination of the training dataset revealed that it contains a disproportionate number of attack records (68.06%) compared to normal traffic (31.93%), which does not reflect realistic conditions. To create a more representative imbalanced subset for our analysis, we retained only the normal traffic and denial-of-service (DoS) attack instances. This resulted in a subset with 82.03% normal and 17.97% DoS traffic, closely aligning with the class distribution in the full dataset.
+To better reflect realistic network conditions, we created a more representative imbalanced subset by retaining only normal and denial-of-service (DoS) traffic. This yielded 82.03% normal and 17.97% DoS records, closely mirroring the distribution in the full dataset.
 
 ## Feature Engineering
 
-Exploratory data analysis was conducted to assess the quality and distribution of the features. One of the first issues identified was with the features `is_ftp_login` and `ct_ftp_cmd`, which were found to be identical in the training dataset and contained integer values ranging from 0 to 4. This was unexpected, as `is_ftp_login` is defined as a binary variable in the data dictionary, suggesting possible data corruption. Given that the observed values appeared to align with the definition of `ct_ftp_cmd`, we chose to drop `is_ftp_login` from the training set. Interestingly, this anomaly was not observed in the test set, where the two features differed as expected.
+Exploratory data analysis was performed to assess feature quality and distributions. The first anomaly involved `is_ftp_login` and `ct_ftp_cmd`, which were identical in the training set, with integer values from 0 to 4. As `is_ftp_login` is defined as binary, this suggested possible corruption. The values matched the definition of `ct_ftp_cmd`, so `is_ftp_login` was dropped. This issue did not occur in the test set, where the two features differed as expected.
 
-The nominal features `proto`, `service`, and `state` had 133, 13, and 9 unique levels, respectively. However, only a small subset of these levels accounted for the vast majority of records in the training data. To reduce dimensionality and improve model interpretability, we grouped the infrequent levels in each feature into a single "other" category. We applied a Pareto principle approach, retaining the levels that together covered approximately 90% of the records. After grouping, `proto` was reduced to 5 levels, `service` to 4, and `state` to 4, resulting in a more manageable set of categories for downstream modelling.
+The nominal variables `proto`, `service`, and `state` had 133, 13, and 9 unique values, respectively, but most records were concentrated in a few categories. To reduce dimensionality and aid interpretability, infrequent levels were grouped into an “other” category using the Pareto principle, retaining those covering roughly 90% of records. This reduced `proto` to 5 levels, `service` to 4, and `state` to 4.
 
-Most numeric features exhibited strong right-skewness, with a pronounced peak at zero, likely indicating unsuccessful or dropped connections. Further inspection revealed that several variables take values from a limited set of predefined ranges. For example, `sttl` and `dttl`, which represent source and destination time-to-live (TTL) values, frequently appeared near 0, 30, 60, and 250. According to @ttl, typical initial TTL values are 64, 128, and 255, which gradually decrease during transmission—consistent with the observed values, along with the additional cluster near 30. As these values reflect discrete categories rather than continuous magnitudes, we recoded them as ordinal variables with levels "0", "~30", "~64", and "~255". Similarly, the features `swin` and `dwin` predominantly took values of 0 and 255, with other values appearing very infrequently (often only once). This pattern suggested that 0 and 255 may also be predefined values. Accordingly, we discretised these numeric features into the nominal levels "0", "255", and "rare".
+Many numeric features were highly right-skewed with a peak at zero, likely indicating unsuccessful or dropped connections. Several showed discrete value patterns. For example, `sttl` and `dttl` often appeared near 0, 30, 60, and 250, consistent with known initial time-to-live (TTL) values of 64, 128, and 255, plus an additional cluster near 30 [@ttl]. These were recoded as ordinal variables with levels “0”, “\~30”, “\~64”, and “\~255”. Similarly, `swin` and `dwin` were usually 0 or 255, with other values occurring rarely, so they were discretised into “0”, “255”, and “rare”.
 
-Before feature selection and model building, nominal features were one-hot encoded, ordinal features were mapped to integers, and numeric features were log-transformed and scaled using a robust scaler. The robust scaler subtracts the median and divides by the interquartile range (IQR), making it more suitable for highly skewed data than standard scaling, which assumes a roughly symmetric distribution. Because most numeric features were heavily skewed and included zero values, we explored various log-based transformations. For features with zeros, we tested log transformations with two offsets: adding 1, and adding half the smallest non-zero value, as suggested by @hyndman2013transformations. We also tested the Yeo–Johnson transformation. Visual inspection showed that the latter offset approach provided the best normalisation, so we applied it to features containing zeros, while using the standard log transformation for strictly positive features.
+Before feature selection and modelling, nominal features were one-hot encoded, ordinal features mapped to integers, and numeric features log-transformed and scaled using a robust scaler. This approach, based on the median and interquartile range, is more appropriate for skewed data than standard scaling. For numeric variables with zeros, we tested log transformations with an offset of 1, an offset equal to half the smallest non-zero value [@hyndman2013transformations], and the Yeo–Johnson transformation. Visual inspection showed that the latter offset method best improved normality, so it was applied to zero-containing features, while strictly positive features used the standard log transformation.
+
 
 ## Feature Selection
 
-To reduce redundancy and retain the most informative features, we applied a two-stage feature selection strategy combining correlation analysis and model-based permutation importance.
+To reduce redundancy and retain informative predictors, we used a two-stage feature selection strategy combining correlation analysis and model-based permutation importance.
 
-First, after preprocessing (see earlier section), we computed the Spearman correlation matrix for the numeric features in the training set. Feature pairs with a high correlation (≥ 0.9) were flagged, and for each pair, we retained the feature with the higher mutual information (MI) score relative to the binary target variable. MI measures the amount of shared information between two variables, capturing any form of statistical dependency—beyond linear correlation—and is particularly well-suited for assessing relationships between a discrete and a continuous variable [@ross2014mutual]. MI was estimated using a nearest-neighbour-based method, which avoids the resolution loss associated with binning and provides a more accurate, non-parametric measure of association [@ross2014mutual, @sklearn-mi]. This filtering step helped reduce redundancy while preserving features most informative for the classification task.
+First, after preprocessing (see earlier section), we computed the Spearman correlation matrix for numeric features in the training set. Pairs with correlation ≥ 0.9 were flagged, and for each pair, the feature with the higher mutual information (MI) score relative to the binary target was retained. MI, estimated via a nearest-neighbour method [@ross2014mutual; @sklearn-mi], captures any statistical dependency between variables and is particularly suitable for discrete–continuous relationships. This step removed redundant features while preserving those most relevant for classification.
 
-In the second stage, we employed a random forest (RF) classifier to assess feature relevance using permutation importance. The training data was split into a sub-training and validation set using stratified sampling to preserve the class distribution, allocating 20% of the data for validation. A model was then trained using a grid search with 5-fold stratified cross-validation, optimising the F1 score. Although this was not the final predictive model, we carefully selected the hyperparameter grid to reduce overfitting. Specifically, we tuned the number of trees ({1000, 1500}), maximum tree depth ({3, 5}), and minimum number of samples required to split an internal node ({10, 15}) [@sklearn-rfclassifier]. In addition, we addressed class imbalance by applying class weights in the learning algorithm, using the "balanced" scheme, which assigns weights inversely proportional to class frequencies [@sklearn-rfclassifier]. After selecting the best-performing model, permutation importance was computed on the validation set by measuring the average decrease in F1 score when each feature was randomly shuffled across 10 repetitions. To further simplify the feature space, we grouped the importance scores of one-hot encoded variables by their original categorical variable (e.g., all `proto_*` columns were aggregated under `proto`). We then selected the top ten base features and retained all corresponding encoded columns, yielding a compact and interpretable set of predictors for subsequent modelling.
+Second, we assessed feature relevance using a random forest (RF) classifier and permutation importance. The training data was split into training and validation subsets (80/20) via stratified sampling to maintain class balance. RF hyperparameters were tuned using a grid search with 5-fold stratified cross-validation, optimising the F1 score. We varied the number of trees ({1000, 1500}), maximum depth ({3, 5}), and minimum samples per split ({10, 15}), and applied class weighting using the “balanced” scheme [@sklearn-rfclassifier].
+
+Permutation importance was computed on the validation set as the mean decrease in F1 after shuffling each feature over 10 repetitions. Importance scores for one-hot encoded variables were aggregated by their original category (e.g., all `proto_*` columns under `proto`). We then selected the top five base features and retained all associated encoded columns, producing a compact, interpretable predictor set for subsequent modelling.
 
 ## Bayesian Neural Networks (BNNs)
 
@@ -47,7 +50,7 @@ A widely used loss function for binary classification is the binary cross-entrop
 
 $$
 J(\theta) = -\sum_{i=1}^N \big[ y_i \log f(\mathbf{x}_i; \theta) + (1-y_i) \log \big( 1 - f(\mathbf{x}_i; \theta) \big) \big].
-$$
+$$ {#eq-logloss}
 
 Training a NN for binary classification therefore amounts to finding the set of parameters $\hat{\theta}$ that minimises this loss:
 
@@ -55,13 +58,11 @@ $$
 \hat{\theta} = \underset{\mathbf{w}}{\mathrm{arg\,min}} \; J(\mathbf{w}).
 $$
 
-This optimisation is typically performed using SGD, where gradients are estimated at each iteration using randomly selected subsets of the data, known as mini-batches [@arbel2023primer]. Because the optimiser does not need to process the entire dataset at each step, but only a small random portion of it, SGD is particularly well suited for large-scale datasets. Another widely used stochastic optimiser is Adam (adaptive moment estimation), which extends SGD by incorporating adaptive learning rates and momentum terms. Adam is computationally efficient, requires minimal memory, and often converges faster in practice [@adam2014method].
-
-This setup is equivalent to finding the maximum likelihood estimates (MLE) of $\theta$ [@goodfellow2016deep]. Since the parameters are treated as fixed quantities, this corresponds to a frequentist approach to training NNs. Under this traditional framework, NNs have demonstrated remarkable performance across a wide range of challenging tasks, including object recognition, speech recognition, and natural language understanding [@jospin2022hands]. Their success stems from a combination of factors: high expressive power due to their complexity and over-parameterisation; beneficial inductive biases introduced through architectural design; and flexibility to mitigate overfitting via explicit and implicit regularisation techniques [@arbel2023primer]. Together, these characteristics enable NNs to achieve strong generalisation in diverse application domains. 
+Training seeks $\hat{\theta} = \arg\min{\theta} J(\theta)$, often using SGD or the Adam [@adam2014method] optimiser. Adam extends SGD by adapting learning rates and incorporating momentum, improving convergence in practice. This approach corresponds to maximum likelihood estimation under a frequentist framework [@goodfellow2016deep]. NNs perform strongly across diverse tasks due to their expressive power, architectural inductive biases, and flexibility in applying regularisation [@arbel2023primer].
 
 ### The Bayesian Approach
 
-However, the frequentist approach to neural networks presents important limitations, particularly in safety-critical real-world applications such as medical diagnosis and cyber-security [@arbel2023primer]. In particular, neural networks often produce miscalibrated or overconfident predicted class probabilities in classification tasks, are sensitive to out-of-distribution samples and domain shifts, are vulnerable to adversarial attacks, lack inherent human interpretability (often functioning as “black-box” models), and may generalise poorly when data is limited [@arbel2023primer; @jospin2022hands]. A variety of strategies have been proposed to address these issues, with Bayesian neural networks (BNNs) standing out as one of the most rigorous and conceptually intuitive frameworks for building robust, uncertainty-aware models [@jospin2022hands].
+Despite its practical succes, the frequentist approach to neural networks presents important limitations, particularly in safety-critical real-world applications such as medical diagnosis and cyber-security [@arbel2023primer]. In particular, neural networks often produce miscalibrated or overconfident predicted class probabilities in classification tasks, are sensitive to out-of-distribution samples and domain shifts, are vulnerable to adversarial attacks, lack inherent human interpretability (often functioning as “black-box” models), and may generalise poorly when data is limited [@arbel2023primer; @jospin2022hands]. A variety of strategies have been proposed to address these issues, with Bayesian neural networks (BNNs) standing out as one of the most rigorous and conceptually intuitive frameworks for building robust, uncertainty-aware models [@jospin2022hands].
 
 BNNs differ from their frequentist counterparts in that the parameters $\theta \in \Theta$ are treated as random variables endowed with a prior distribution $p(\theta)$. Given a dataset $D = \{(\mathbf{x}_i, y_i)\}_{i=1}^N$ and a likelihood function $p(D | \theta)$ describing how the parameters generate the observed data, the Bayesian approach seeks to infer the posterior distribution
 
@@ -80,20 +81,21 @@ an integral over a vast and non-linear parameter space. This calculation is anal
 Given $p(\theta | D)$, the posterior predictive distribution for a new observation $y^{*}$ associated with some input $\mathbf{x}^{*}$, $p(y^{*} | \mathbf{x}^{*}, D)$, is given by
 
 $$
-p(y^{*} | \mathbf{x}^{*}, D) = \mathbb{E}\!\left[p(y^{*} | \mathbf{x}^{*}, \theta) | D\right] 
-= \int_{\mathbfcal{W}} p(y^{*} | \mathbf{x}^{*}, \theta) \, p(\theta | D) \, d\theta.
+p(y^{*} | \mathbf{x}^{*}, D) = \text{E}\!\left[p(y^{*} | \mathbf{x}^{*}, \theta) | D\right] 
+= \int_{\Theta} p(y^{*} | \mathbf{x}^{*}, \theta) \, p(\theta | D) \, d\theta.
 $$
 
-In practice, direct evaluation of this integral is intractable, so it is commonly approximated by drawing samples $\theta^{(s)} \sim p(\theta | D)$ and computing the corresponding likelihood terms $p(y^{*} | \mathbf{x}^{*}, \theta^{(s)})$. These values are then averaged using a Monte Carlo estimator, yielding an empirical approximation of the posterior predictive distribution [@jospin2022hands]. This process naturally incorporates epistemic uncertainty (uncertainty in the model parameters) by marginalising over the posterior $p(\theta | D)$. This type of uncertainty is distinct from aleatoric uncertainty, which stems from inherent noise in the data and cannot be reduced by collecting additional observations [@jospin2022hands; @arbel2023primer].
+Direct evaluation is typically intractable, so it is approximated via Monte Carlo by drawing samples $\theta^{(s)} \sim p(\theta | D)$, computing $p(y^{*} | \mathbf{x}^{*}, \theta^{(s)})$, and averaging [@jospin2022hands]. This integrates over parameter uncertainty (epistemic uncertainty), which differs from aleatoric uncertainty, arising from irreducible data noise [@jospin2022hands; @arbel2023primer].
 
-BNNs provide a principled approach to uncertainty quantification by explicitly modelling the posterior over the network parameters. This yields better-calibrated predictions than conventional NNs, where predicted probabilities more accurately reflect empirical frequencies, thereby reducing both overconfidence and underconfidence [@jospin2022hands]. By disentangle epistemic from aleatoric uncertainty, BNNs also exhibit improved robustness: for out-of-distribution samples, they express high epistemic uncertainty rather than unjustified confidence [@jospin2022hands].
-
-Beyond uncertainty quantification, BNNs offer a coherent framework for incorporating prior knowledge into neural networks as inductive bias, making explicit what is often only implicit in other learning algorithms [@jospin2022hands]. Priors can act as soft constraints, analogous to regularisation, and many established deep neural network techniques, such as ensembling or data augmentation, can be interpreted through a Bayesian lens. This perspective not only deepens theoretical understanding but also provides a systematic basis for developing new learning strategies, even when exact Bayesian inference is computationally infeasible [@jospin2022hands].
+BNNs quantify uncertainty by modelling the posterior over network parameters, producing better-calibrated predictions than conventional NNs and expressing high epistemic uncertainty for out-of-distribution inputs [@jospin2022hands]. They also allow prior knowledge to be encoded as inductive bias, acting as soft constraints akin to regularisation. Common deep learning methods such as ensembling or data augmentation can be interpreted in this Bayesian framework, which both deepens theoretical insight and guides the design of new strategies when exact inference is infeasible [@jospin2022hands].
 
 ### Priors
 
-**PRIORs, why are they difficult in BNN, equivalences with regularization** A primer and What are
+Priors in Bayesian Neural Networks (BNNs) encode beliefs about parameter values before observing data and can influence accuracy, log-likelihood, and probability calibration [@izmailov2021bayesian]. However, specifying priors for high-dimensional, over-parameterised models is difficult due to the limited interpretability of parameters and the intractability of the true posterior [@arbel2023primer; @wenzel2020good].
 
+Regularisation methods in frequentist NNs, such as L2 and L1 penalties, correspond to Gaussian and Laplace priors respectively [@jospin2022hands]. A common default in BNNs is a zero-mean Gaussian prior with diagonal covariance, though high-variance, weakly informative Gaussians often perform better and are robust across wide variance ranges [@murphy2012machine; @izmailov2021bayesian]. Heavy-tailed priors, such as logistic, can also yield slight gains [@izmailov2021bayesian].
+
+BNNs trained with variational inference and stochastic gradient descent often induce heavy-tailed parameter distributions, diverging from Gaussian assumptions [@arbel2023primer]. Some argue Gaussian priors may be unsuitable [@wenzel2020good], but network architecture typically has a greater impact on performance than the specific prior [@izmailov2021bayesian], though prior sensitivity checks remain good practice.
 
 ### Inference Methods
 
@@ -113,11 +115,17 @@ The MH algorithm requires the user to chose a proposal distribution $Q(\theta^{*
     - Draw $u \sim \mathcal{U}(0,1)$.
     - If $u \leq \gamma$, accept the candidate and set $\theta^{(t+1)}=\theta^{*}$, else set $\theta^{(t+1)}=\theta$.
 
-**Explain a little bit how MCMC works, warm-up and diagnostics**
+Once convergence is achieved, these posterior samples can be used to approximate expectations of functions $h(\theta)$ under $p(\theta|D)$ via the Monte Carlo estimate
 
-Hamiltonian Monte Carlo (HMC) [@neal2011mcmc] improves the efficiency of the MH algorithm by leveraging gradient information to guide proposals along trajectories that better explore the posterior, reducing random-walk behaviour and improving mixing in high dimensions [@hoffman2014no]. However, HMC’s performance depends on careful tuning of the step size and the number of leapfrog steps, which can be difficult in practice. The No-U-Turn Sampler (NUTS) [@hoffman2014no] extends HMC by removing the need to predefine the trajectory length. It adaptively stops simulating the Hamiltonian dynamics when the trajectory begins to double back on itself, avoiding inefficient exploration [@hoffman2014no]. NUTS also uses a primal–dual averaging scheme to automatically tune the step size, making it a robust and largely hand-free MCMC method [@hoffman2014no]. These features make NUTS particularly well-suited for BNNs, where efficient sampling in high-dimensional, multimodal posteriors is crucial.
+$$
+\text{E}[h(\theta)|D] \approx \frac{1}{T} \sum_{t=1}^T h(\theta^{(t)}).
+$$
 
-#### Variational Inference (VI)
+In practice, the MH algorithm is run with a warm-up (burn-in) phase to allow convergence, and these initial samples are discarded. The remaining draws approximate the posterior, with quality depending on the mixing rate—how well the chain explores the parameter space—which in high-dimensional BNNs can be hindered by poor proposals or strong parameter correlations. Mixing can be assessed visually (trace or autocorrelation plots) or numerically, with the potential scale reduction statistic $\hat{R}$ and the effective sample size (ESS) being common diagnostics [@stan_ref]. Values of $\hat{R}$ close to 1 indicate convergence, while a low ESS signals high autocorrelation and poor mixing.
+
+Hamiltonian Monte Carlo (HMC) [@neal2011mcmc] improves MH efficiency by using gradient information to generate proposals along Hamiltonian trajectories, reducing random-walk behaviour and improving mixing in high dimensions [@hoffman2014no]. Its performance depends on the trajectory length (longer reduces autocorrelation but increases cost) and step size (smaller improves accuracy but requires more gradients), both of which require tuning. The No-U-Turn Sampler (NUTS) [@hoffman2014no] removes the need to set these parameters by adaptively stopping trajectories when they double back and using primal–dual averaging to tune step size, making it a robust, largely automated choice for sampling from the complex posteriors of BNNs.
+
+#### Variational Inference (VI) {#sec-vi}
 
 While MCMC methods provide exact samples from the posterior, their limited scalability has shifted focus towards variational inference (VI) as a more computationally efficient alternative for Bayesian neural networks (BNNs). VI approximates the true posterior $p(\theta | D)$ with a variational distribution $q_{\phi}(\theta)$, parameterized by $\phi$ (i.e., parameters such as location, scale, etc.). This variational distribution is optimised to minimize the Kullback-Leibler (KL) divergence between the two distributions, which is a measure of distance between the distributions [@jospin2022hands]. Denoting $q_{\phi}=q$, the KL divergence is given by:
 
@@ -150,54 +158,68 @@ where $M$ is the total number of parameters in the neural network. Although this
 
 ## Benchmarking 
 
-We evaluated the performance of BNNs with different configurations for detecting DoS cyber-attacks using the UNSW-NB15 dataset. Model performance was assessed using precision, recall, and the $F_1$ score. Precision measures the proportion of correctly identified attacks among all instances predicted as attacks, while recall measures the proportion of correctly identified attacks among all actual attacks. The $F_1$ score, the harmonic mean of precision and recall, provides a single metric that balances both aspects. All three metrics take values in $[0,1]$, with values closer to 1 indicating better performance.
+We evaluated both the predictive performance and the calibration quality of the predicted attack probabilities of BNN classifiers with varying configurations for detecting DoS cyber-attacks using the UNSW-NB15 dataset. Predictive performance was assessed using precision, recall, and the $F_1$ score. Precision quantifies the proportion of correctly identified attacks among all instances predicted as attacks, while recall measures the proportion of correctly identified attacks among all actual attacks. The $F_1$ score, defined as the harmonic mean of precision and recall, provides a single metric that balances both aspects. All three metrics take values in $[0,1]$, with values closer to 1 indicating superior performance. THRESHOLD
 
-BNNs with a single hidden layer ($L = 1$) and ReLU activations were trained under multiple configurations and evaluated on a validation set of 1,000 samples randomly drawn from the training data. Although precision, recall, and $F_1$ scores were computed on the validation set, BNN model selection was based solely on the $F_1$ score. The selected BNN was compared against (i) a frequentist neural network with identical architecture but without parameter priors, and (ii) a gradient-boosted decision tree (GBDT), which is a strong baseline for classification tasks, particularly on tabular data.
+Calibration quality was evaluated using the log loss as defined in $\ref{eq-logloss}$, the Brier score, and the expected calibration error (ECE). Lower log loss values indicate better match between the predicted probabilities and the true labels. The Brier score (BS) for binary classification is given by
 
-BNNs were implemented in NumPyro [@phan2019composable; @bingham2019pyro], a probabilistic programming library for Python. In NumPyro, variational distributions are referred to as guides, and we adopt this terminology here. The BNN configurations differed in:
+$$
+\text{BS}=\frac{1}{N}\sum_{i=1}^{N}{(y_i-\hat{p}_i)^2},
+$$
+
+where $y_i \in \{0,1\}$ is the true class label for observation $i$ and $\hat{p}_i$ is the predicted probability of success, $\Pr(y_i=1)$. Lower BS values indicate better prediction probabilities. The ECE measures the average absolute difference between predicted probabilities and observed accuracies across $M$ equally spaced probability bins, and is defined as
+
+$$
+\text{ECE} = \sum_{m=1}^M \frac{|B_m|}{N} \, \big| \text{acc}(B_m) - \text{conf}(B_m) \big|,
+$$
+
+where $B_m$ denotes the set of predictions whose predicted probabilities fall within the $m$-th bin, $\text{acc}(B_m)$ is the average accuracy within bin $B_m$, and $\text{conf}(B_m)$ is the average predicted probability within bin $B_m$ [@guo2017calibration]. Lower values of ECE indicate better alignment between predicted probabilities and empirical outcomes. In this study, we set $M=10$. Calibration quality of the final classifiers was also assessed using calibration curves, which plot empirical accuracy against mean predicted confidence within discrete probability bins (as in the ECE computation). Curves that lie close to the identity line indicate well-calibrated predictions.
+
+BNNs classifiers with a single hidden layer ($L = 1$) and ReLU activations were trained under multiple configurations and evaluated on a validation set of 1,000 samples randomly drawn from the training subset. BNNs were implemented in NumPyro [@phan2019composable; @bingham2019pyro], a probabilistic programming library for Python. In NumPyro, variational distributions are referred to as guides, and we adopt this terminology here. The BNN configurations differed in:
 
 1. Hidden layer width ($H_1$): 5, 10, and 14 (equal to the number of input features).
-2. Prior precision: prior mean precisions of 0.5, 1, and 2.
+2. Prior mean precision: Prior means of 0.01, 0.1, and 1.
 3. Inference method: Markov Chain Monte Carlo (MCMC) using the No-U-Turn Sampler (NUTS) vs. Variational Inference (VI).
 4. Guide type (VI only): mean-field Gaussian and multivariate Gaussian.
 
-The hidden layer widths were chosen to reflect different model complexities, approximately corresponding to one-third, two-thirds, and the full input dimension. A zero-mean Gaussian prior was placed on all network parameters $\theta$, assumed independent and identically distributed (i.i.d.). The prior variances followed the He initialisation scaling [@he2015delving], which is particularly effective for ReLU activations. Specifically, for the hidden layer weights and biases:
+The hidden layer widths were chosen to reflect different model complexities, approximately corresponding to one-third, two-thirds, and the full input dimension. A zero-mean Gaussian prior was placed on all network parameters $\theta$, assumed independent and identically distributed (i.i.d.). The prior variances followed a formulation analogous to the He initialisation scheme for neural networks [@he2015delving], which is particularly effective for ReLU activations, scaling parameter variances by the width of the preceding layer. Specifically, for the hidden layer weights and biases:
 
 $$
-w_{ij}^{(1)} \sim \mathcal{N}\left(0, \frac{2}{14 \tau}\right) \quad \text{and} \quad b_{i}^{(1)} \sim \mathcal{N}\left(0, \frac{2}{14 \tau}\right),
+w_{ij}^{(1)} \sim \mathcal{N}\left(0, \frac{\sigma^2}{14}\right) \quad \text{and} \quad b_{i}^{(1)} \sim \mathcal{N}\left(0, \frac{\sigma^2}{14}\right),
 $$
 
-for $i = 1, \ldots, 14$ (input dimension) and $j = 1, \ldots, H_1$ ($H_1 \in \{5, 10, 14\}$).
-
-For the output layer pre-activations:
+for $i = 1, \ldots, 14$ (input dimension) and $j = 1, \ldots, H_1$ ($H_1 \in \{5, 10, 14\}$), and for the output layer pre-activations:
 
 $$
-w_{j}^{(2)} \sim \mathcal{N}\left(0, \frac{2}{\tau H_1}\right) \quad \text{and} \quad b^{(2)} \sim \mathcal{N}\left(0, \frac{2}{\tau H_1}\right),
+w_{j}^{(2)} \sim \mathcal{N}\left(0, \frac{\sigma^2}{H_1}\right) \quad \text{and} \quad b^{(2)} \sim \mathcal{N}\left(0, \frac{\sigma^2}{H_1}\right),
 $$
 
-for $j = 1, \ldots, H_1$.
+for $j = 1, \ldots, H_1$. The precision parameter $\tau=1/\sigma^2$ was assigned a Gamma prior, $\tau \sim \mathcal{G}(\alpha, \beta)$. To explore the influence of this prior, we varied the prior mean while keeping the coefficient of variation constant: 0.01 ($\alpha=2,\ \beta=200$), 0.1 ($\alpha=2,\ \beta=20$), and 1 ($\alpha=2,\ \beta=2$). This variation allowed us to assess (i) whether the prior meaningfully influences posterior inference (i.e., whether the posterior shifts with different prior means), and (ii) whether higher or lower prior variance affects BNN performance, as some previous work has suggested that higher-variance priors may lead to improved predictive accuracy.
 
-Here, $\tau$ is a precision-like parameter controlling the scaling of the Gaussian distributions (not strictly the variance inverse). A Gamma prior was placed on $\tau$, with shape $\alpha$ and rate $\beta$ chosen to yield prior mean precisions of 0.5 ($\alpha=1,\ \beta=2$), 1 ($\alpha=6,\ \beta=6$), or 2 ($\alpha=4,\ \beta=2$).
-
-Denote the training dataset as $\{(\mathbf{x}_i, y_i)\}_{i=1}^{N}$, where $N=67{,}264$. The outputs $y_i$ ($i=1,\ldots,N$), were assumed Bernoulli-distributed with probability of attack $p_i$ and a sigmoid activation through a logit function:
+Denote the training dataset as $\{(\mathbf{x}_i, y_i)\}_{i=1}^{N}$, where $N=67{,}264$. The outputs $y_i$ ($i=1,\ldots,N$) for the BNNs classifiers were assumed Bernoulli-distributed with probability of attack $p_i$ and a sigmoid activation through a logit function:
 
 $$
 \begin{aligned}
-y_i &= \mathcal{B}(p_i) \\
-\text{logit}(p_i) &= \text{log}\left(\frac{p_i}{1-p_i}\right) = \mathbf{w}^{(2)}\mathbf{h}^{(1)}(\mathbf{x}_i) + b^{(2)},
+y_i &= \mathcal{B}(p_i), \\
+\text{logit}(p_i) &= \text{log}\left(\frac{p_i}{1-p_i}\right) \\
+&= \mathbf{w}^{(2)}\mathbf{h}^{(1)}(\mathbf{x}_i) + b^{(2)},
 \end{aligned}
 $$
 
-where $\mathbf{x}_i$ is the input vector for sample $i$ and $\mathbf{h}^{(1)}(\mathbf{x}_i)$ is the hidden layer output. The training dataset is denoted .
+where $\mathbf{x}_i$ is the input vector for sample $i$ and $\mathbf{h}^{(1)}(\mathbf{x}_i)$ is the hidden layer output. 
 
 For MCMC, the NUTS algorithm was run with two chains, each generating 500 post-warm-up samples after 250 warm-up iterations. Parameters were initialised at their prior means, and all other settings used NumPyro defaults (target acceptance probability $\gamma=0.8$). Summary statistics and convergence diagnostics were computed for each parameter, including posterior mean, standard deviation, median, highest posterior density interval (HPDI), ESS, and the $\hat{R}$ statistic.
 
-For VI, both mean-field and multivariate Gaussian guides were created using NumPyro’s automatic guide generation. Guides were initialised with means randomly chosen from a uniform distribution with support $[-2, 2]$ and standard deviations of 0.1 (default options). The multivariate Gaussian guide was initialised as a diagonal Gaussian (no correlations), but unlike the mean-field guide, it could learn correlations during optimisation. The Adam optimiser with a defaul learning rate of $10^{-3}$ ELBO trace plots were monitored to verify convergence, with convergence indicated by a plateau in the ELBO curve. 
+For VI, both mean-field and multivariate Gaussian guides were created using NumPyro’s automatic guide generation. Guides were initialised with means randomly chosen from a uniform distribution with support $[-2, 2]$ and standard deviations of 0.1 (default options). The multivariate Gaussian guide was initialised as a diagonal Gaussian (no correlations), but unlike the mean-field guide, it could learn correlations during optimisation. The Adam optimiser was used with a defaul learning rate of $10^{-3}$. ELBO trace plots were monitored to verify convergence, with convergence indicated by a plateau in the ELBO curve. 
+
+BNN model selection was based solely on the validation $F_1$ score. The selected BNN was compared against (i) a frequentist neural network with identical architecture but without parameter priors, (ii) a gradient-boosted decision tree (GBDT), which is a strong baseline for classification tasks, particularly on tabular data, and (iii) calibrated versions of both classifiers.
+
+The frequentist NN was trained using mini-batches of size 256 for 20 epochs, optimised with Adam (learning rate $10^{-3}$). Early stopping was applied with a patience of 5 epochs based on the validation $F_1$ score. The GBDT classifier was trained with 1,000 trees, a maximum depth of 3, a subsampling rate of 0.8 for individual trees, and a minimum of 10 samples required to split an internal node. Calibrated versions of both classifiers were constructed as follows: the training set was randomly split into five stratified folds; for each split, the classifiers were fitted to the training subset (using the same hyperparameters as the un-calibrated classifiers), and their outputs were calibrated on the corresponding validation subset using isotonic regression [@scikit-learn-calibratedclass]. Isotonic regression is a non-parametric method that fits a stepwise, non-decreasing function $\hat{f}$ by minimising
+
+$$
+\sum_{i=1}^N (y_i - \hat{f}_i)^2,
+$$
+
+where $y_i \in \{0,1\}$ is the true label for observation $i$, and $\hat{f}_i$ is the calibrated probability of success [@scikit-learn-calibration]. Final predicted probabilities were obtained by averaging the outputs of the individually calibrated classifiers across the five folds [@scikit-learn-calibratedclass].
 
 
-
-
-
-
-## Interpretability Analysis
 

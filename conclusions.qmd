@@ -1,3 +1,12 @@
 # Conclusions {sec-conclusions}
 
-Gaussian priors might not be appropriate for BNNs (A primer)
+In this study, we evaluated Bayesian Neural Networks (BNNs) for cyber-attack detection using the UNSW-NB15 dataset. The analysis focused on two main objectives: (i) assessing different BNN configurations relevant for real-world deployment, including inference method, model architecture complexity, and prior specification, and (ii) benchmarking BNNs against high-performing models for tabular classification tasks.
+
+We found that Markov Chain Monte Carlo (MCMC), specifically the No-U-Turn Sampler (NUTS), consistently outperformed variational inference (VI) methods in predictive performance. This is likely due to MCMC’s ability to generate samples from the true posterior under convergence, whereas VI methods approximate the posterior with simpler distributions that require careful tuning. However, MCMC was computationally expensive, taking roughly 100 times longer to train than VI, which completed in seconds. While VI is more scalable, the restrictive variational distributions used in this study limited performance. Future applications should explore more flexible approximations to improve accuracy. Model complexity, measured by the width of the hidden layer, and prior specification, defined as the precision prior, had no substantial impact on results.
+
+The best-performing BNN, trained with MCMC, achieved predictive performance comparable to gradient boosted decision trees (GBDTs), which are a common benchmark for classification. In terms of calibration, although GBDTs generally outperformed the BNN except in expected calibration error (ECE), the BNN still provided a marked improvement over a non-Bayesian neural network (NN). These findings indicate that BNNs can be competitive for classification while offering the additional advantage of quantifying predictive uncertainty, which GBDTs and frequentist NNs cannot provide.
+
+Unexpectedly, the MCMC algorithm did not fully converge to the posterior distribution and was in fact far from convergence, yet still delivered competitive results. This suggests that, in this setting, full convergence may not be strictly necessary for strong predictive performance, particularly if the data exert a strong influence on the learned parameter distributions.
+
+Lastly, the strong performance on this moderately imbalanced dataset, without any balancing techniques, suggests a strong signal for identifying cyber-attacks, possibly due to the dataset being artificially generated. These results may not generalise to real-world data, where handling class imbalance could be necessary before deploying BNNs or other models.
+

@@ -1,0 +1,8 @@
+# Generative AI Acknowledgment {.unnumbered}
+
+- I acknowledge the use of ChatGPT-4o (<https://chatgpt.com/>) to identify improvements in the writing style.
+
+- I acknowledge the use of ChatGPT-4o (<https://chatgpt.com/>) to aid my understanding of concepts and to validate the technical accuracy of my ideas for data analysis.
+
+- I acknowledge the use of ChatGPT-4o (<https://chatgpt.com/>) to create snippets of code for debugging and data analysis.
+
